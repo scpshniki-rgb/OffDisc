@@ -1,0 +1,2867 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord* — *не совсем Discord</title>
+<style>
+  :root{
+    --rail:#1e1f22;
+    --side:#2b2d31;
+    --chat:#313338;
+    --input:#383a40;
+    --hover:#35373c;
+    --active:#404249;
+    --blurple:#5865f2;
+    --text:#dbdee1;
+    --muted:#949ba4;
+    --green:#23a55a;
+    --red:#f23f43;
+    --yellow:#f0b232;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"gg sans","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    background:var(--rail);
+    color:var(--text);
+    overflow:hidden;
+    font-size:16px;
+  }
+  button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#1a1b1e;border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb:hover{background:#111214}
+
+  .app{display:flex;height:100vh;width:100vw}
+
+  /* ---------- RAIL ---------- */
+  .rail{
+    width:72px;flex:0 0 72px;background:var(--rail);
+    display:flex;flex-direction:column;align-items:center;
+    padding:12px 0;gap:8px;overflow-y:auto;overflow-x:hidden;
+  }
+  .rail::-webkit-scrollbar{width:0}
+  .guild{
+    position:relative;width:48px;height:48px;flex:0 0 48px;
+    border-radius:50%;background:var(--side);
+    display:grid;place-items:center;font-size:22px;
+    transition:border-radius .15s, background .15s;
+    user-select:none;
+  }
+  .guild:hover{border-radius:16px;background:var(--blurple)}
+  .guild.active{border-radius:16px;background:var(--blurple)}
+  .guild.home{background:var(--blurple)}
+  .guild .pill{
+    position:absolute;left:-12px;top:50%;transform:translateY(-50%);
+    width:8px;height:0;border-radius:0 4px 4px 0;background:#fff;
+    transition:height .15s;
+  }
+  .guild:hover .pill{height:20px}
+  .guild.active .pill{height:40px}
+  .guild .badge{
+    position:absolute;right:-4px;bottom:-4px;min-width:20px;height:20px;
+    padding:0 6px;border-radius:10px;background:var(--red);color:#fff;
+    font-size:12px;font-weight:700;display:grid;place-items:center;
+    border:4px solid var(--rail);
+  }
+  .divider{width:32px;height:2px;background:#35373c;border-radius:1px;flex:0 0 2px;margin:2px 0}
+  .tooltip{
+    position:fixed;z-index:50;background:#111214;color:#fff;
+    padding:6px 10px;border-radius:6px;font-size:14px;font-weight:600;
+    pointer-events:none;opacity:0;transform:translateY(-50%);
+    transition:opacity .1s;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .tooltip.show{opacity:1}
+
+  /* ---------- CHANNEL SIDEBAR ---------- */
+  .channels{
+    width:240px;flex:0 0 240px;background:var(--side);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .server-head{
+    height:48px;flex:0 0 48px;display:flex;align-items:center;gap:8px;
+    padding:0 12px;font-weight:700;font-size:15px;
+    box-shadow:0 1px 0 rgba(0,0,0,.2);cursor:pointer;
+  }
+  .server-head:hover{background:var(--hover)}
+  .server-head .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .server-head .chev{color:var(--muted);font-size:12px}
+  .channel-list{flex:1;overflow-y:auto;padding:8px 8px 0}
+  .category{
+    display:flex;align-items:center;gap:4px;
+    padding:8px 4px 4px;margin-top:8px;
+    font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--muted);
+    text-transform:uppercase;cursor:pointer;user-select:none;
+  }
+  .category:hover{color:var(--text)}
+  .category .arrow{font-size:9px;transition:transform .15s;display:inline-block}
+  .category.collapsed .arrow{transform:rotate(-90deg)}
+  .channel{
+    display:flex;align-items:center;gap:6px;
+    padding:7px 8px;margin:1px 0;border-radius:6px;
+    color:var(--muted);font-size:15px;font-weight:500;
+    cursor:pointer;user-select:none;position:relative;
+  }
+  .channel .hash{color:#6d6f78;font-size:18px;font-weight:600}
+  .channel:hover{background:var(--hover);color:var(--text)}
+  .channel.active{background:var(--active);color:#fff}
+  .channel.active .hash{color:#fff}
+  .channel .label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .channel .unread{
+    min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+    background:var(--red);color:#fff;font-size:11px;font-weight:700;
+    display:grid;place-items:center;
+  }
+  .channel.unread .label{color:#fff;font-weight:700}
+  .channel .voicers{font-size:11px;color:var(--muted);font-weight:600}
+  .voice-users{padding:0 0 4px 30px;display:flex;flex-direction:column;gap:2px}
+  .voice-user{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .voice-user .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+  /* ---------- USER PANEL ---------- */
+  .me{
+    height:52px;flex:0 0 52px;background:#232428;
+    display:flex;align-items:center;gap:8px;padding:0 8px;
+  }
+  .me .avatar{width:32px;height:32px;font-size:15px;border-radius:50%}
+  .me .info{flex:1;min-width:0;line-height:1.15}
+  .me .info b{display:block;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .me .info span{font-size:11px;color:var(--muted)}
+  .me .icons{display:flex;gap:2px}
+  .icon-btn{
+    width:32px;height:32px;border-radius:4px;display:grid;place-items:center;
+    font-size:16px;position:relative;transition:background .1s;
+  }
+  .icon-btn:hover{background:var(--hover)}
+  .icon-btn.off{color:var(--red)}
+  .icon-btn.off::after{
+    content:"";position:absolute;width:20px;height:2px;background:var(--red);
+    transform:rotate(-45deg);border-radius:1px;box-shadow:0 0 0 2px #232428;
+  }
+
+  /* ---------- CHAT ---------- */
+  .chat{flex:1;display:flex;flex-direction:column;background:var(--chat);min-width:0}
+  .chat-head{
+    height:48px;flex:0 0 48px;display:flex;align-items:center;gap:8px;
+    padding:0 16px;box-shadow:0 1px 0 rgba(0,0,0,.2);z-index:2;
+  }
+  .chat-head .hash{font-size:22px;color:#6d6f78;font-weight:600}
+  .chat-head .title{font-weight:700;font-size:16px;color:#fff;white-space:nowrap}
+  .chat-head .topic{
+    color:var(--muted);font-size:13px;padding-left:12px;margin-left:8px;
+    border-left:1px solid #3f4147;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .chat-head .spacer{flex:1}
+  .chat-head .h-icons{display:flex;gap:4px;color:var(--muted)}
+  .chat-head .h-icons .icon-btn{font-size:18px}
+  .chat-head .h-icons .icon-btn:hover{color:var(--text)}
+
+  .messages{flex:1;overflow-y:auto;padding:16px 0 8px;position:relative}
+  .welcome{padding:16px 16px 24px}
+  .welcome .big{
+    width:68px;height:68px;border-radius:50%;background:var(--active);
+    display:grid;place-items:center;font-size:36px;margin-bottom:12px;
+  }
+  .welcome h2{color:#fff;font-size:30px;margin-bottom:6px}
+  .welcome p{color:var(--muted);font-size:15px}
+
+  .msg{
+    display:flex;gap:16px;padding:2px 16px 2px 16px;
+    margin-top:14px;position:relative;
+  }
+  .msg:hover{background:rgba(0,0,0,.06)}
+  .msg.grouped{margin-top:0}
+  .msg .avatar{
+    width:40px;height:40px;flex:0 0 40px;border-radius:50%;
+    display:grid;place-items:center;font-size:20px;
+    background:var(--c,#5865f2);user-select:none;
+  }
+  .msg .avatar.hidden{visibility:hidden;height:0}
+  .msg-body{flex:1;min-width:0}
+  .msg-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .msg-head .author{font-weight:600;font-size:15px;color:var(--ac,#fff)}
+  .msg-head .bot-tag{
+    background:var(--blurple);color:#fff;font-size:10px;font-weight:700;
+    padding:1px 4px;border-radius:3px;line-height:1.3;
+  }
+  .msg-head .time{font-size:12px;color:#949ba4}
+  .msg-text{font-size:15px;line-height:1.375;color:var(--text);word-wrap:break-word;white-space:pre-wrap}
+  .msg-text.mention{background:rgba(88,101,242,.15);color:#c9cdfb;border-radius:3px;padding:0 2px}
+  .msg.system{
+    color:var(--muted);font-size:14px;align-items:center;
+  }
+  .msg.system .sys-icon{font-size:18px;width:40px;text-align:center}
+  .msg.system b{color:var(--text);font-weight:600}
+
+  .embed{
+    margin-top:6px;border-left:4px solid var(--blurple);
+    background:#2b2d31;border-radius:4px;padding:10px 14px;max-width:520px;
+  }
+  .embed .e-title{font-weight:700;color:#fff;font-size:15px;margin-bottom:4px}
+  .embed .e-desc{font-size:14px;color:var(--text);line-height:1.4}
+  .embed .e-foot{font-size:12px;color:var(--muted);margin-top:8px}
+
+  .reactions{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+  .react{
+    display:flex;align-items:center;gap:4px;
+    background:#2b2d31;border:1px solid #3f4147;border-radius:8px;
+    padding:2px 8px;font-size:13px;color:var(--text);transition:.1s;
+  }
+  .react:hover{border-color:#6d6f78}
+  .react.mine{background:rgba(88,101,242,.15);border-color:var(--blurple);color:#c9cdfb}
+  .react .cnt{font-weight:600;font-size:12px}
+
+  .typing-line{
+    height:24px;flex:0 0 24px;padding:0 16px;font-size:13px;color:var(--text);
+    display:flex;align-items:center;gap:6px;
+  }
+  .typing-line .dots{display:inline-flex;gap:2px}
+  .typing-line .dots i{
+    width:4px;height:4px;border-radius:50%;background:var(--muted);
+    animation:blink 1.2s infinite;
+  }
+  .typing-line .dots i:nth-child(2){animation-delay:.2s}
+  .typing-line .dots i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+  .composer-wrap{padding:0 16px 24px}
+  .composer{
+    background:var(--input);border-radius:var(--radius);
+    display:flex;align-items:flex-end;gap:6px;padding:0 8px;min-height:44px;
+  }
+  .composer .c-btn{
+    width:36px;height:44px;display:grid;place-items:center;
+    font-size:20px;color:var(--text);flex:0 0 36px;
+  }
+  .composer .c-btn:hover{color:#fff}
+  .composer textarea{
+    flex:1;background:none;border:none;outline:none;resize:none;
+    color:var(--text);font-family:inherit;font-size:15px;line-height:1.375;
+    padding:12px 0 11px;max-height:180px;min-height:44px;
+  }
+  .composer textarea::placeholder{color:#6d6f78}
+  .composer .send{
+    background:var(--blurple);color:#fff;border-radius:6px;font-weight:600;
+    font-size:14px;padding:8px 14px;margin:6px 0;display:none;
+  }
+  .composer.has-text .send{display:block}
+
+  /* ---------- MEMBERS ---------- */
+  .members{
+    width:240px;flex:0 0 240px;background:var(--side);
+    overflow-y:auto;padding:16px 8px;
+  }
+  .members .group-title{
+    font-size:12px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.02em;color:var(--muted);padding:8px 8px 4px;
+  }
+  .member{
+    display:flex;align-items:center;gap:10px;padding:6px 8px;
+    border-radius:6px;cursor:pointer;
+  }
+  .member:hover{background:var(--hover)}
+  .member .avatar{width:32px;height:32px;font-size:15px;border-radius:50%;position:relative}
+  .member .status{
+    position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;
+    border-radius:50%;border:3px solid var(--side);
+  }
+  .status.online{background:var(--green)}
+  .status.idle{background:var(--yellow)}
+  .status.dnd{background:var(--red)}
+  .status.offline{background:#80848e}
+  .member .m-info{min-width:0;line-height:1.2}
+  .member .m-name{font-size:14px;font-weight:600;color:#dbdee1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px}
+  .member .m-sub{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .member.offline .m-name,.member.offline .m-sub{opacity:.5}
+  .member .bot-tag{font-size:9px;padding:0 3px}
+
+  /* ---------- TOAST / MODAL ---------- */
+  .toast-wrap{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);
+    z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;
+    pointer-events:none;
+  }
+  .toast{
+    background:#111214;color:#fff;padding:10px 16px;border-radius:8px;
+    font-size:14px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    border-left:4px solid var(--blurple);
+    animation:toastIn .2s ease, toastOut .3s ease 2.6s forwards;
+    max-width:90vw;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes toastOut{to{opacity:0;transform:translateY(-12px)}}
+
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+    display:none;place-items:center;padding:16px;
+  }
+  .overlay.show{display:grid}
+  .modal{
+    background:#313338;border-radius:12px;max-width:440px;width:100%;
+    padding:24px;box-shadow:0 12px 40px rgba(0,0,0,.6);position:relative;
+  }
+  .modal h3{color:#fff;font-size:22px;margin-bottom:8px}
+  .modal p{color:var(--muted);font-size:14px;line-height:1.5;margin-bottom:16px}
+  .modal .buy{
+    width:100%;background:var(--blurple);color:#fff;font-weight:600;
+    padding:12px;border-radius:8px;font-size:15px;
+  }
+  .modal .buy:hover{background:#4752c4}
+  .modal .close{
+    position:absolute;top:12px;right:12px;color:var(--muted);font-size:22px;
+    width:32px;height:32px;border-radius:50%;
+  }
+  .modal .close:hover{background:var(--hover);color:#fff}
+  .modal .nitro-emoji{font-size:40px;margin-bottom:8px}
+
+  /* ---------- QUICK SWITCHER ---------- */
+  .qs-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:150;
+    display:none;justify-content:center;align-items:flex-start;padding-top:14vh;
+  }
+  .qs-overlay.show{display:flex}
+  .qs{
+    width:min(560px,92vw);background:#313338;border-radius:12px;
+    overflow:hidden;box-shadow:0 16px 56px rgba(0,0,0,.65);
+  }
+  .qs-head{padding:16px 16px 0}
+  .qs-input{
+    width:100%;background:#1e1f22;border:none;outline:none;color:#fff;
+    font-family:inherit;font-size:18px;padding:13px 15px;border-radius:8px;
+  }
+  .qs-input::placeholder{color:#6d6f78}
+  .qs-hint{color:#949ba4;font-size:12px;padding:9px 4px 0}
+  .qs-hint kbd{
+    background:#1e1f22;border-radius:3px;padding:1px 5px;font-family:inherit;
+    font-size:11px;color:#dbdee1;border:1px solid #3f4147;
+  }
+  .qs-list{max-height:min(340px,50vh);overflow-y:auto;padding:10px 8px 8px}
+  .qs-item{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;
+    border-radius:6px;cursor:pointer;user-select:none;
+  }
+  .qs-item .hash{color:#6d6f78;font-size:18px;font-weight:600}
+  .qs-item .name{color:#dbdee1;font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .qs-item .cat{margin-left:auto;font-size:12px;color:#949ba4;flex:0 0 auto;text-transform:uppercase;letter-spacing:.02em}
+  .qs-item.sel{background:var(--blurple)}
+  .qs-item.sel .name,.qs-item.sel .hash,.qs-item.sel .cat{color:#fff}
+  .qs-item .cur{margin-left:6px;font-size:11px;font-weight:700;color:#23a55a;background:rgba(35,165,90,.15);padding:2px 6px;border-radius:4px}
+  .qs-item.sel .cur{color:#fff;background:rgba(255,255,255,.2)}
+  .qs-empty{color:#949ba4;text-align:center;padding:28px 16px;font-size:14px;line-height:1.5}
+  .kbd-hint{
+    display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px;
+    padding:0 8px;white-space:nowrap;
+  }
+  .kbd-hint kbd{
+    background:#1e1f22;border:1px solid #3f4147;border-radius:3px;
+    padding:1px 5px;font-family:inherit;font-size:10px;color:#dbdee1;
+  }
+
+  /* ---------- SETTINGS ---------- */
+  .settings-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:160;
+    display:none;place-items:center;padding:16px;
+  }
+  .settings-overlay.show{display:grid}
+  .settings{
+    width:min(900px,96vw);height:min(640px,90vh);background:#313338;
+    border-radius:12px;display:flex;overflow:hidden;position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,.65);
+  }
+  .settings-nav{
+    width:220px;flex:0 0 220px;background:#2b2d31;padding:16px 10px;
+    display:flex;flex-direction:column;gap:2px;overflow-y:auto;
+  }
+  .settings-title{
+    font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
+    color:#949ba4;padding:4px 10px 10px;
+  }
+  .snav{
+    display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;
+    color:#949ba4;font-size:14px;font-weight:500;text-align:left;width:100%;
+  }
+  .snav:hover{background:#35373c;color:#dbdee1}
+  .snav.active{background:#404249;color:#fff}
+  .snav .ico{width:18px;text-align:center;flex:0 0 18px}
+  .settings-foot{
+    margin-top:auto;padding:12px 10px 4px;font-size:11px;color:#6d6f78;line-height:1.6;
+  }
+  .settings-body{flex:1;overflow-y:auto;padding:28px 32px 40px;min-width:0}
+  .settings-close{
+    position:absolute;top:14px;right:16px;width:32px;height:32px;border-radius:50%;
+    color:#949ba4;font-size:16px;display:grid;place-items:center;z-index:2;
+  }
+  .settings-close:hover{background:#35373c;color:#fff}
+  .set-h1{color:#fff;font-size:22px;margin-bottom:4px}
+  .set-sub{color:#949ba4;font-size:14px;margin-bottom:22px;line-height:1.45}
+  .set-section{border-top:1px solid #3f4147;padding-top:18px;margin-top:22px}
+  .set-section.first{border-top:none;padding-top:0;margin-top:0}
+  .set-label{color:#fff;font-size:15px;font-weight:600;margin-bottom:4px}
+  .set-desc{color:#949ba4;font-size:13px;line-height:1.45;margin-bottom:10px}
+  .set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0}
+  .set-row .info{flex:1;min-width:0}
+  .set-row .info b{display:block;color:#fff;font-size:14px;font-weight:600;margin-bottom:2px}
+  .set-row .info span{color:#949ba4;font-size:12px;line-height:1.4}
+  .set-input{
+    width:100%;background:#1e1f22;border:1px solid #1e1f22;outline:none;
+    color:#dbdee1;font-family:inherit;font-size:14px;padding:9px 11px;border-radius:6px;
+  }
+  .set-input:focus{border-color:#5865f2}
+  .set-select{
+    background:#1e1f22;color:#dbdee1;border:1px solid #1e1f22;border-radius:6px;
+    padding:9px 11px;font-family:inherit;font-size:14px;outline:none;min-width:180px;
+  }
+  .set-select:focus{border-color:#5865f2}
+  .set-btn{
+    background:#4e5058;color:#fff;font-weight:600;font-size:13px;
+    padding:8px 14px;border-radius:6px;white-space:nowrap;
+  }
+  .set-btn:hover{background:#5d6069}
+  .set-btn.blurple{background:#5865f2}
+  .set-btn.blurple:hover{background:#4752c4}
+  .set-btn.danger{background:#da373c}
+  .set-btn.danger:hover{background:#a12828}
+  .toggle{
+    width:44px;height:24px;border-radius:12px;background:#80848e;position:relative;
+    flex:0 0 44px;transition:background .15s;
+  }
+  .toggle::after{
+    content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+    background:#fff;transition:left .15s;
+  }
+  .toggle.on{background:#23a55a}
+  .toggle.on::after{left:23px}
+  .range{
+    -webkit-appearance:none;appearance:none;height:6px;border-radius:3px;
+    background:#4e5058;width:190px;outline:none;flex:0 0 190px;
+  }
+  .range::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4);
+  }
+  .range-val{color:#dbdee1;font-size:13px;font-weight:600;width:44px;text-align:right;flex:0 0 44px}
+  .theme-cards{display:flex;gap:12px;flex-wrap:wrap}
+  .theme-card{
+    border:2px solid #3f4147;border-radius:10px;padding:10px;width:150px;
+    background:#2b2d31;text-align:left;transition:border-color .1s;
+  }
+  .theme-card:hover{border-color:#6d6f78}
+  .theme-card.active{border-color:#5865f2}
+  .theme-card .preview{height:54px;border-radius:6px;margin-bottom:8px;display:flex;overflow:hidden;border:1px solid rgba(0,0,0,.25)}
+  .theme-card .preview i{display:block;height:100%}
+  .theme-card .tname{font-size:13px;font-weight:600;color:#fff}
+  .theme-card .tsub{font-size:11px;color:#949ba4;margin-top:2px}
+  .acc-head{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+  .acc-avatar{
+    width:72px;height:72px;border-radius:50%;display:grid;place-items:center;
+    font-size:36px;background:#5865f2;flex:0 0 72px;user-select:none;
+  }
+  .acc-name{color:#fff;font-size:20px;font-weight:700;line-height:1.2}
+  .acc-tag{color:#949ba4;font-size:14px}
+  .set-note{
+    background:rgba(240,178,50,.1);border-left:3px solid #f0b232;color:#e8c47a;
+    font-size:12px;padding:10px 12px;border-radius:4px;margin-top:16px;line-height:1.45;
+  }
+  .set-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .set-kv{display:flex;justify-content:space-between;gap:16px;padding:7px 0;font-size:13px;border-bottom:1px solid #3a3c41}
+  .set-kv span{color:#949ba4}
+  .set-kv b{color:#dbdee1;font-weight:600}
+
+  /* ---------- PREFERENCE MODES ---------- */
+  .msg-text{font-size:var(--msg-font,15px)}
+  body.compact .msg{margin-top:3px;padding-top:0;padding-bottom:0}
+  body.compact .msg-head .time{display:none}
+  body.compact .msg .avatar{width:26px;height:26px;flex:0 0 26px;font-size:13px}
+  body.compact .msg-text{font-size:calc(var(--msg-font,15px) - 1px);line-height:1.3}
+  body.compact .welcome{padding-bottom:12px}
+  body.hide-members .members{display:none !important}
+  body.no-anim *{animation:none !important;transition:none !important}
+
+  /* тёмная «полночь» */
+  body.midnight{
+    --rail:#0b0c0e;--side:#141518;--chat:#191a1d;--input:#232428;
+    --hover:#202225;--active:#2b2d31;--text:#d7d9dc;--muted:#7d838c;
+  }
+  /* светлая тема */
+  body.light{
+    --rail:#e3e5e8;--side:#f2f3f5;--chat:#ffffff;--input:#ebedef;
+    --hover:#e6e8eb;--active:#d9dce0;--text:#2e3338;--muted:#5c6470;
+  }
+  body.light .me{background:#e3e5e8}
+  body.light .me .info b{color:#060607}
+  body.light .me .info span{color:#5c6470}
+  body.light .chat-head .title,
+  body.light .welcome h2,
+  body.light .embed .e-title,
+  body.light .member .m-name{color:#060607}
+  body.light .chat-head .hash,
+  body.light .channel .hash,
+  body.light .composer textarea::placeholder{color:#7c8590}
+  body.light .embed,body.light .react{background:#f2f3f5;border-color:#d9dce0}
+  body.light .react:hover{border-color:#b5bac1}
+  body.light .react.mine{background:rgba(88,101,242,.12);color:#4752c4}
+  body.light .msg:hover{background:rgba(0,0,0,.03)}
+  body.light .server-head,body.light .chat-head{box-shadow:0 1px 0 rgba(0,0,0,.08)}
+  body.light .toast{background:#060607;color:#fff}
+  body.light .modal,body.light .qs,body.light .settings{background:#ffffff}
+  body.light .qs-input,body.light .set-input,body.light .set-select{background:#f2f3f5;color:#060607;border-color:#e3e5e8}
+  body.light .qs-item .name,body.light .set-h1,body.light .set-label,body.light .set-row .info b,
+  body.light .theme-card .tname,body.light .acc-name{color:#060607}
+  body.light .qs-item .cat,body.light .set-desc,body.light .set-sub,body.light .set-row .info span{color:#5c6470}
+  body.light .settings-nav{background:#f2f3f5}
+  body.light .settings-title,body.light .snav{color:#5c6470}
+  body.light .snav:hover{background:#e6e8eb;color:#2e3338}
+  body.light .snav.active{background:#d9dce0;color:#060607}
+  body.light .settings-close{color:#5c6470}
+  body.light .settings-close:hover{background:#e6e8eb;color:#060607}
+  body.light .set-section{border-color:#e3e5e8}
+  body.light .set-kv{border-color:#e3e5e8}
+  body.light .theme-card{background:#f2f3f5;border-color:#d9dce0}
+  body.light .theme-card .tsub{color:#5c6470}
+  body.light .set-btn{background:#d9dce0;color:#060607}
+  body.light .set-btn:hover{background:#c7cbd1}
+  body.light .set-btn.blurple{background:#5865f2;color:#fff}
+  body.light .set-btn.danger{background:#da373c;color:#fff}
+  body.light .channel.active,
+  body.light .channel.active .hash,
+  body.light .channel.unread .label{color:#060607}
+  body.light .member .m-name,
+  body.light .msg-head .author{color:#060607 !important}
+  body.light .set-kv b{color:#2e3338}
+  body.light .set-kv span{color:#5c6470}
+  body.light .msg.system{color:#5c6470}
+
+  /* ---------- VOICE CHAT ---------- */
+  .voice-bar{
+    display:none;align-items:center;gap:6px;padding:7px 8px;
+    background:#1e1f22;border-top:1px solid rgba(0,0,0,.25);
+  }
+  .voice-bar.show{display:flex}
+  .vb-info{flex:1;min-width:0;line-height:1.2}
+  .vb-title{font-size:13px;font-weight:700;color:#23a55a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vb-sub{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vb-btn{width:28px;height:28px;border-radius:5px;display:grid;place-items:center;font-size:14px;color:var(--muted);flex:0 0 28px}
+  .vb-btn:hover{background:var(--hover);color:#fff}
+  .vb-btn.danger:hover{background:rgba(237,66,69,.18);color:#ed4245}
+
+  .voice-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:155;
+    display:none;place-items:center;padding:16px;
+  }
+  .voice-overlay.show{display:grid}
+  .voice-panel{
+    width:min(780px,96vw);height:min(620px,92vh);background:#313338;border-radius:12px;
+    display:flex;flex-direction:column;overflow:hidden;position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,.65);
+  }
+  .voice-close{
+    position:absolute;top:14px;right:16px;width:32px;height:32px;border-radius:50%;
+    color:#949ba4;font-size:16px;display:grid;place-items:center;z-index:3;
+  }
+  .voice-close:hover{background:#35373c;color:#fff}
+  .v-head{display:flex;align-items:center;gap:14px;padding:20px 24px 14px;border-bottom:1px solid #3f4147}
+  .v-icon{
+    width:46px;height:46px;border-radius:50%;background:rgba(35,165,90,.15);
+    display:grid;place-items:center;font-size:22px;flex:0 0 46px;
+  }
+  .v-title{color:#fff;font-size:19px;font-weight:700;line-height:1.2;padding-right:34px}
+  .v-status{color:#949ba4;font-size:12px;margin-top:3px}
+  .v-join{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 32px;gap:8px}
+  .v-join .v-big{font-size:46px;margin-bottom:2px}
+  .v-join p{color:#949ba4;font-size:14px;line-height:1.55;max-width:450px;margin:0}
+  .v-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+  .v-btn{border-radius:6px;padding:10px 18px;font-weight:600;font-size:14px;color:#fff;background:#4e5058}
+  .v-btn:hover{background:#5d6069}
+  .v-btn.primary{background:#23a55a}
+  .v-btn.primary:hover{background:#1e8f4d}
+  .v-btn.ghost{background:transparent;border:1px solid #4e5058;color:#dbdee1}
+  .v-btn.ghost:hover{background:#3a3c41}
+  .v-btn:disabled{opacity:.55;cursor:not-allowed}
+  .v-hint{color:#6d6f78;font-size:11px;max-width:440px;line-height:1.5;margin-top:8px}
+  .v-room{flex:1;display:flex;flex-direction:column;min-height:0}
+  .v-stage{
+    flex:0 0 auto;display:flex;flex-wrap:wrap;gap:10px;padding:16px 24px;min-height:104px;
+    align-content:flex-start;border-bottom:1px solid #3f4147;overflow-y:auto;max-height:190px;
+  }
+  .v-member{
+    width:112px;background:#2b2d31;border:1px solid #3f4147;border-radius:10px;
+    padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;
+  }
+  .v-member.me{border-color:#5865f2;background:#343650}
+  .v-member.muted{opacity:.78}
+  .v-ava{
+    width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:23px;
+    position:relative;user-select:none;
+  }
+  .v-ava .v-mute{
+    position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;
+    background:#1e1f22;font-size:10px;display:grid;place-items:center;border:2px solid #2b2d31;
+  }
+  .v-mname{font-size:12px;font-weight:700;color:#fff;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .v-mtag{font-size:10px;color:#949ba4}
+  .v-host{font-size:8px;background:rgba(240,178,50,.2);color:#f0b232;border-radius:3px;padding:1px 3px;vertical-align:middle}
+  .v-chat{flex:1;display:flex;flex-direction:column;min-height:0}
+  .v-chat-head{
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
+    color:#949ba4;padding:10px 24px 6px;
+  }
+  .v-messages{flex:1;overflow-y:auto;padding:0 24px 10px;display:flex;flex-direction:column;gap:8px}
+  .v-msg{display:flex;gap:8px;align-items:flex-start}
+  .v-msg-ava{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;flex:0 0 28px;user-select:none}
+  .v-msg-body{min-width:0}
+  .v-msg-head{font-size:12px;line-height:1.3}
+  .v-msg-head b{font-weight:700}
+  .v-msg-head .v-time{color:#6d6f78;font-size:10px;margin-left:6px}
+  .v-msg-text{color:#dbdee1;font-size:14px;line-height:1.4;word-wrap:break-word;overflow-wrap:anywhere}
+  .v-empty{color:#6d6f78;font-size:13px;text-align:center;padding:22px 10px;line-height:1.5}
+  .v-composer{display:flex;gap:8px;padding:8px 20px 12px;border-top:1px solid #3f4147}
+  .v-composer input{
+    flex:1;background:#1e1f22;border:1px solid #1e1f22;outline:none;border-radius:6px;
+    color:#dbdee1;font-family:inherit;font-size:14px;padding:10px 12px;min-width:0;
+  }
+  .v-composer input:focus{border-color:#5865f2}
+  .v-composer button{
+    width:42px;border-radius:6px;background:#5865f2;color:#fff;font-size:16px;
+    display:grid;place-items:center;flex:0 0 42px;
+  }
+  .v-composer button:hover{background:#4752c4}
+  .v-controls{display:flex;gap:8px;justify-content:center;padding:10px 20px 16px;border-top:1px solid #3f4147}
+  .v-ctrl{
+    display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;
+    background:#4e5058;color:#fff;font-size:13px;font-weight:600;
+  }
+  .v-ctrl:hover{background:#5d6069}
+  .v-ctrl.off{background:#da373c}
+  .v-ctrl.off:hover{background:#a12828}
+  .v-ctrl.danger{background:transparent;border:1px solid #4e5058;color:#dbdee1}
+  .v-ctrl.danger:hover{background:rgba(218,55,60,.18);border-color:#da373c;color:#ff8a8e}
+  .v-ctrl:disabled{opacity:.5;cursor:not-allowed}
+  .voice-audio{display:none}
+  body.light .voice-panel{background:#fff}
+  body.light .v-head,body.light .v-controls,body.light .v-composer,body.light .v-stage{border-color:#e3e5e8}
+  body.light .v-title,body.light .v-mname,body.light .v-msg-head b{color:#060607}
+  body.light .v-status,body.light .v-msg-text,body.light .v-chat-head{color:#5c6470}
+  body.light .v-member{background:#f2f3f5;border-color:#d9dce0}
+  body.light .v-member.me{background:#e8eaff;border-color:#5865f2}
+  body.light .v-composer input{background:#f2f3f5;color:#060607;border-color:#e3e5e8}
+  body.light .v-btn.ghost{border-color:#d9dce0;color:#2e3338}
+  body.light .voice-close{color:#5c6470}
+  body.light .voice-close:hover{background:#e6e8eb;color:#060607}
+  body.light .voice-bar{background:#e3e5e8;border-color:#d9dce0}
+  @media (max-width:680px){
+    .voice-panel{height:min(680px,96vh)}
+    .v-head{padding:16px 18px 12px}
+    .v-stage{padding:14px 16px;max-height:150px}
+    .v-messages{padding:0 16px 10px}
+    .v-chat-head{padding:10px 16px 6px}
+    .v-member{width:96px}
+    .v-join{padding:18px 18px}
+  }
+
+  .hamburger{display:none}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width:900px){
+    .members{display:none}
+  }
+  @media (max-width:680px){
+    .channels{position:fixed;left:72px;top:0;bottom:0;z-index:60;transform:translateX(-120%);transition:transform .2s}
+    .channels.open{transform:translateX(0)}
+    .rail{width:56px;flex-basis:56px}
+    .guild{width:40px;height:40px;flex-basis:40px;font-size:18px}
+    .hamburger{display:grid;place-items:center;font-size:20px;width:36px;height:36px;margin-left:-8px}
+    .chat-head .topic{display:none}
+    .welcome h2{font-size:22px}
+    .msg{gap:10px;padding-left:12px;padding-right:12px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== RAIL ===== -->
+  <nav class="rail" id="rail" aria-label="Список серверов"></nav>
+
+  <!-- ===== CHANNELS ===== -->
+  <aside class="channels" id="channels">
+    <div class="server-head" id="serverHead">
+      <span class="name" id="serverName">Заброшенный Голосовой</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="channel-list" id="channelList"></div>
+    <div class="voice-bar" id="voiceBar">
+      <div class="vb-info">
+        <div class="vb-title" id="vbTitle">Голосовой канал</div>
+        <div class="vb-sub" id="vbSub">Подключено</div>
+      </div>
+      <button class="vb-btn" id="vbOpen" title="Открыть голосовой канал">🔊</button>
+      <button class="vb-btn danger" id="vbLeave" title="Выйти из канала">📴</button>
+    </div>
+    <div class="me">
+      <div class="avatar" style="background:#5865f2">🙂</div>
+      <div class="info"><b>Ты</b><span>в сети</span></div>
+      <div class="icons">
+        <button class="icon-btn" id="btnMic" title="Микрофон">🎙️</button>
+        <button class="icon-btn" id="btnDeaf" title="Наушники">🎧</button>
+        <button class="icon-btn" id="btnSettings" title="Настройки">⚙️</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== CHAT ===== -->
+  <main class="chat">
+    <header class="chat-head">
+      <button class="hamburger" id="hamburger" aria-label="Каналы">☰</button>
+      <span class="hash" id="chatIcon">#</span>
+      <span class="title" id="chatTitle">общий-хаос</span>
+      <span class="topic" id="chatTopic">тут никто не слушает, но все пишут</span>
+      <span class="spacer"></span>
+      <div class="h-icons">
+        <button class="icon-btn" title="Уведомления">🔔</button>
+        <button class="icon-btn" title="Закреплённые">📌</button>
+        <button class="icon-btn" title="Участники">👥</button>
+        <button class="icon-btn" id="btnSearch" title="Быстрый переход по каналам (Ctrl+K)">🔍</button>
+      </div>
+    </header>
+
+    <div class="messages" id="messages"></div>
+    <div class="typing-line" id="typingLine"></div>
+
+    <div class="composer-wrap">
+      <div class="composer" id="composer">
+        <button class="c-btn" title="Прикрепить (не работает)">＋</button>
+        <textarea id="input" rows="1" placeholder="Написать в #общий-хаос" maxlength="500"></textarea>
+        <button class="c-btn" title="Подарок">🎁</button>
+        <button class="c-btn" title="Эмодзи">😊</button>
+        <button class="send" id="sendBtn">Отправить</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== MEMBERS ===== -->
+  <aside class="members" id="members"></aside>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<!-- ===== NITRO MODAL ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="close" id="modalClose" aria-label="Закрыть">×</button>
+    <div class="nitro-emoji">💎</div>
+    <h3>Discord* Nitro</h3>
+    <p>За <b>9,99$</b> в месяц вы получите: анимированный аватар, большие эмодзи и ощущение, что вы потратили деньги с умом.</p>
+    <button class="buy" id="buyBtn">Купить Nitro*</button>
+  </div>
+</div>
+
+<!-- ===== QUICK SWITCHER ===== -->
+<div class="qs-overlay" id="qsOverlay">
+  <div class="qs" role="dialog" aria-label="Быстрый переход по каналам">
+    <div class="qs-head">
+      <input class="qs-input" id="qsInput" placeholder="Куда перейти? Введи название канала" autocomplete="off" spellcheck="false">
+      <div class="qs-hint"><kbd>↑</kbd><kbd>↓</kbd> — выбор · <kbd>Enter</kbd> — перейти · <kbd>Esc</kbd> — закрыть</div>
+    </div>
+    <div class="qs-list" id="qsList"></div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings" role="dialog" aria-label="Настройки">
+    <aside class="settings-nav">
+      <div class="settings-title">Настройки</div>
+      <button class="snav active" data-tab="account"><span class="ico">👤</span>Мой аккаунт</button>
+      <button class="snav" data-tab="appearance"><span class="ico">🎨</span>Внешний вид</button>
+      <button class="snav" data-tab="notifications"><span class="ico">🔔</span>Уведомления</button>
+      <button class="snav" data-tab="voice"><span class="ico">🎙️</span>Голос и видео</button>
+      <button class="snav" data-tab="language"><span class="ico">🌍</span>Язык</button>
+      <button class="snav" data-tab="advanced"><span class="ico">🧪</span>Продвинутые</button>
+      <div class="settings-foot">Discord* v0.0.1<br>Пародия. Не настоящий Discord.</div>
+    </aside>
+    <section class="settings-body" id="settingsBody"></section>
+    <button class="settings-close" id="settingsClose" aria-label="Закрыть">✕</button>
+  </div>
+</div>
+
+<!-- ===== VOICE ===== -->
+<div class="voice-overlay" id="voiceOverlay">
+  <div class="voice-panel" role="dialog" aria-label="Голосовой канал">
+    <button class="voice-close" id="vClose" aria-label="Закрыть">✕</button>
+    <div class="v-head">
+      <div class="v-icon">🔊</div>
+      <div>
+        <div class="v-title" id="vTitle">Голосовой канал</div>
+        <div class="v-status" id="vStatus">Не подключено</div>
+      </div>
+    </div>
+
+    <div class="v-join" id="vJoinWrap">
+      <div class="v-big">🎙️</div>
+      <p>Настоящий голосовой чат. Друзья заходят на этот же сайт, открывают этот же канал — и вы слышите друг друга. Магия WebRTC, без сервера и без счётчика «премиум».</p>
+      <div class="v-actions">
+        <button class="v-btn primary" id="vJoin">Подключиться</button>
+        <button class="v-btn ghost" id="vJoinListen">Только слушать</button>
+      </div>
+      <div class="v-hint">Браузер спросит доступ к микрофону. Если откажешь — зайдёшь слушателем. Для друзей нужен HTTPS-адрес сайта (GitHub Pages, Netlify и т.п.). Комната публичная: не отправляй паспортные данные и номер карты.</div>
+    </div>
+
+    <div class="v-room" id="vRoom" style="display:none">
+      <div class="v-stage" id="vStage"></div>
+      <div class="v-chat">
+        <div class="v-chat-head">Чат голосового канала <span id="vChatCount"></span></div>
+        <div class="v-messages" id="vMessages"></div>
+        <div class="v-composer">
+          <input id="vInput" placeholder="Написать в голосовой чат" maxlength="300" autocomplete="off">
+          <button id="vSend" title="Отправить">➤</button>
+        </div>
+      </div>
+      <div class="v-controls">
+        <button class="v-ctrl" id="vMic">🎙️ <span>Микрофон</span></button>
+        <button class="v-ctrl" id="vDeaf">🎧 <span>Звук</span></button>
+        <button class="v-ctrl danger" id="vLeave">📴 Выйти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+/* =========================================================
+   ДАННЫЕ
+   ========================================================= */
+const USERS = {
+  me:       {name:'Ты',                 tag:'#0001', emoji:'🙂', color:'#5865f2', status:'online', role:'Участник'},
+  timofey:  {name:'ТоксичныйТимофей',    tag:'#1337', emoji:'😠', color:'#ed4245', status:'online', role:'Участник'},
+  mod:      {name:'МодерСпит',           tag:'#0000', emoji:'😴', color:'#3ba55d', status:'idle',   role:'Модератор (спит)'},
+  bot:      {name:'КурьерБот',           tag:'#B0T',  emoji:'🤖', color:'#faa61a', status:'online', role:'Бот', bot:true},
+  caps:     {name:'КАПС_ЛОК',            tag:'#6666', emoji:'📢', color:'#eb459e', status:'dnd',    role:'Участник'},
+  lurker:   {name:'Просто_Читаю',        tag:'#4040', emoji:'👀', color:'#99aab5', status:'offline',role:'Участник'},
+  newbie:   {name:'Новичок_228',         tag:'#0228', emoji:'🐣', color:'#57f287', status:'online', role:'Новичок'},
+  voice:    {name:'ГолосНикого',         tag:'#0999', emoji:'🎧', color:'#5865f2', status:'online', role:'Участник'},
+  owner:    {name:'ВладелецСервера',     tag:'#7777', emoji:'👑', color:'#f0b232', status:'idle',   role:'Владелец'},
+  memer:    {name:'МемныйБарон',         tag:'#2019', emoji:'😹', color:'#eb459e', status:'online', role:'Поставщик мемов'},
+  animefan: {name:'Вайфу_Сенсей',        tag:'#0222', emoji:'🌸', color:'#eb459e', status:'online', role:'Аниме-эксперт'},
+  doter:    {name:'Мид-Или-Фидер',       tag:'#3220', emoji:'⚔️', color:'#ed4245', status:'dnd',    role:'5000 ммр (в мечтах)'},
+  student:  {name:'Дедлайн_Горит',       tag:'#2024', emoji:'📚', color:'#f0b232', status:'idle',   role:'Учится (нет)'},
+  ghost:    {name:'Никто',               tag:'#0000', emoji:'👻', color:'#80848e', status:'offline',role:'Призрак'},
+};
+
+const GUILDS = [
+  {id:'home',   emoji:'💬', name:'Личные сообщения', home:true, badge:3},
+  {id:'main',   emoji:'🎮', name:'Заброшенный Голосовой'},
+  {id:'memes',  emoji:'😹', name:'Мемы 24/7', badge:12},
+  {id:'anime',  emoji:'🌸', name:'Аниме-убежище', badge:4},
+  {id:'dota',   emoji:'⚔️', name:'Дота-пати (токсики)', badge:99},
+  {id:'study',  emoji:'📚', name:'Учимся вместе (не учимся)'},
+  {id:'void',   emoji:'🕳️', name:'Пустой сервер'},
+];
+
+const CHANNELS = [
+  // ---- main: Заброшенный Голосовой ----
+  {id:'rules',   guild:'main', type:'text',  cat:'ИНФОРМАЦИЯ', name:'правила-которые-никто-не-читал', topic:'прочитай и забудь'},
+  {id:'news',    guild:'main', type:'text',  cat:'ИНФОРМАЦИЯ', name:'объявления-без-смысла', topic:'важные новости, которых нет'},
+  {id:'general', guild:'main', type:'text',  cat:'ТЕКСТОВЫЕ', name:'общий-хаос', topic:'тут никто не слушает, но все пишут', unread:0},
+  {id:'memes-ch',guild:'main', type:'text',  cat:'ТЕКСТОВЫЕ', name:'мемы-для-своих', topic:'мемы только для избранных'},
+  {id:'flood',   guild:'main', type:'text',  cat:'ТЕКСТОВЫЕ', name:'флудилка', topic:'пиши что угодно, всё равно никто не прочтёт'},
+  {id:'help',    guild:'main', type:'text',  cat:'ТЕКСТОВЫЕ', name:'помощь-по-дискорду', topic:'здесь тебе не помогут', unread:2},
+  {id:'voice1',  guild:'main', type:'voice', cat:'ГОЛОСОВЫЕ', name:'Голосовой где никого', limit:'0/99'},
+  {id:'voice2',  guild:'main', type:'voice', cat:'ГОЛОСОВЫЕ', name:'Афк-канал на вечность', limit:'1/1', users:['lurker']},
+
+  // ---- memes: Мемы 24/7 ----
+  {id:'mem-fresh', guild:'memes', type:'text', cat:'МЕМЫ', name:'свежие-мемы', topic:'мемы не старше 5 минут', unread:12},
+  {id:'mem-old',   guild:'memes', type:'text', cat:'МЕМЫ', name:'мемы-из-2019', topic:'тут всё ещё смешно (нет)'},
+  {id:'mem-repost',guild:'memes', type:'text', cat:'МЕМЫ', name:'репосты-из-других-серверов', topic:'украдено, но с любовью'},
+  {id:'mem-oc',    guild:'memes', type:'text', cat:'МЕМЫ', name:'оригинальный-контент', topic:'оригинального контента тут нет'},
+  {id:'mem-voice', guild:'memes', type:'voice', cat:'ГОЛОСОВЫЕ', name:'Мемный голосовой', limit:'2/10', users:['memer','timofey']},
+
+  // ---- anime: Аниме-убежище ----
+  {id:'an-titles', guild:'anime', type:'text', cat:'ОБСУЖДЕНИЯ', name:'обсуждение-тайтлов', topic:'спойлеры запрещены. шучу, разрешены', unread:4},
+  {id:'an-waifu',  guild:'anime', type:'text', cat:'ОБСУЖДЕНИЯ', name:'кто-твоя-вайфу', topic:'начнётся война'},
+  {id:'an-spoil',  guild:'anime', type:'text', cat:'ОБСУЖДЕНИЯ', name:'спойлеры-без-спойлеров', topic:'тут спойлеры, но мы не предупредили'},
+  {id:'an-subs',   guild:'anime', type:'text', cat:'ХОЛИВАР', name:'сабы-vs-озвучка', topic:'не заходи, если дорог мир'},
+  {id:'an-voice',  guild:'anime', type:'voice', cat:'ГОЛОСОВЫЕ', name:'Аниме-вместе', limit:'1/10', users:['animefan']},
+
+  // ---- dota: Дота-пати ----
+  {id:'do-find',  guild:'dota', type:'text', cat:'ИГРА', name:'поиск-игры', topic:'ищем пятого, он всегда убегает', unread:99},
+  {id:'do-mid',   guild:'dota', type:'text', cat:'ИГРА', name:'виноват-мид', topic:'всегда'},
+  {id:'do-rep',   guild:'dota', type:'text', cat:'ИГРА', name:'репорты-в-никуда', topic:'пожалуйтесь в пустоту'},
+  {id:'do-mmr',   guild:'dota', type:'text', cat:'ПСИХОТЕРАПИЯ', name:'мой-ммр-не-виноват', topic:'это тиммейты'},
+  {id:'do-voice', guild:'dota', type:'voice', cat:'ГОЛОСОВЫЕ', name:'Катка (токсичная)', limit:'3/5', users:['doter','timofey','caps']},
+
+  // ---- study: Учимся вместе ----
+  {id:'st-dead',  guild:'study', type:'text', cat:'ДЕДЛАЙНЫ', name:'дедлайн-завтра', topic:'а может, послезавтра'},
+  {id:'st-mot',   guild:'study', type:'text', cat:'ДЕДЛАЙНЫ', name:'мотивация-на-5-минут', topic:'заряжает на 5 минут, хватает на 0'},
+  {id:'st-proc',  guild:'study', type:'text', cat:'ПРОКРАСТИНАЦИЯ', name:'прокрастинация', topic:'заходи, если откладываешь'},
+  {id:'st-notes', guild:'study', type:'text', cat:'ПРОКРАСТИНАЦИЯ', name:'конспекты-которых-нет', topic:'я точно записывал'},
+  {id:'st-voice', guild:'study', type:'voice', cat:'ГОЛОСОВЫЕ', name:'Тихая учёба (спим)', limit:'1/8', users:['student']},
+
+  // ---- void: Пустой сервер ----
+  {id:'vd-echo',  guild:'void', type:'text', cat:'ПУСТОТА', name:'эхо', topic:'...'},
+  {id:'vd-void',  guild:'void', type:'text', cat:'ПУСТОТА', name:'пустота', topic:'здесь ничего нет'},
+  {id:'vd-voice', guild:'void', type:'voice', cat:'ПУСТОТА', name:'тишина', limit:'0/0'},
+
+  // ---- home: личные сообщения ----
+  {id:'dm-bot',    guild:'home', type:'dm', cat:'ЛИЧНЫЕ СООБЩЕНИЯ', name:'КурьерБот', topic:'бот, который приносит пустоту', unread:1},
+  {id:'dm-timofey',guild:'home', type:'dm', cat:'ЛИЧНЫЕ СООБЩЕНИЯ', name:'ТоксичныйТимофей', topic:'он всё ещё обижен'},
+  {id:'dm-spam',   guild:'home', type:'dm', cat:'ЛИЧНЫЕ СООБЩЕНИЯ', name:'Спам-папка', topic:'поздравляем, вы выиграли', unread:2},
+];
+
+const MESSAGES = {
+  rules: [
+    {sys:true, icon:'📜', text:'<b>ВладелецСервера</b> создал канал #правила-которые-никто-не-читал'},
+    {u:'owner', text:'Правило 1. Будьте вежливы.', time:'12:00'},
+    {u:'owner', text:'Правило 2. Не будьте грубы.', time:'12:01'},
+    {u:'owner', text:'Правило 3. См. правило 1.', time:'12:01'},
+    {u:'owner', text:'Правило 4. Никто это не читает. Мы знаем. Мы смирились.', time:'12:02', react:[{e:'💀',c:42},{e:'📖',c:3}]},
+  ],
+  news: [
+    {u:'owner', text:'Объявление: завтра ничего не будет. Как и сегодня.', time:'09:00', react:[{e:'👍',c:17},{e:'🤷',c:9}]},
+    {u:'bot', text:'', time:'09:01', embed:{title:'📢 Важное объявление', desc:'Сервер официально признан мёртвым. Пожалуйста, продолжайте писать в него.', foot:'КурьерБот • сегодня в 09:01'}},
+    {u:'mod', text:'закрепил. на всякий случай.', time:'09:05'},
+  ],
+  general: [
+    {sys:true, icon:'➡️', text:'<b>ТоксичныйТимофей</b> зашёл на сервер. Все сделали вид, что не заметили.'},
+    {u:'timofey', text:'кто-нибудь знает как удалить сообщение', time:'14:01'},
+    {u:'mod', text:'нет', time:'14:02'},
+    {u:'timofey', text:'спасибо, очень помог', time:'14:02', react:[{e:'😂',c:8},{e:'💀',c:5}]},
+    {u:'caps', text:'А МОЖНО Я ТОЖЕ ЧТО-НИБУДЬ НАПИШУ', time:'14:03'},
+    {u:'mod', text:'нельзя', time:'14:03'},
+    {u:'caps', text:'А ТАК?', time:'14:04', react:[{e:'📢',c:6}]},
+    {u:'bot', text:'', time:'14:05', embed:{title:'📦 Доставка мемов', desc:'Доставлено: 0 шт.\nПричина: мемы закончились в 2019 году.', foot:'КурьерБот • сегодня в 14:05'}},
+    {u:'newbie', text:'привет! я тут новенький, что тут происходит?', time:'14:07'},
+    {u:'timofey', text:'ничего', time:'14:07'},
+    {u:'newbie', text:'а понятно', time:'14:07', react:[{e:'🐣',c:4}]},
+    {u:'me', text:'почему у меня микрофон не работает', time:'14:09'},
+    {u:'mod', text:'потому что ты его не включил', time:'14:10'},
+    {u:'me', text:'а', time:'14:10'},
+    {u:'caps', text:'А Я ВСЁ ЕЩЁ ЗДЕСЬ', time:'14:11', react:[{e:'📢',c:11},{e:'😐',c:7}]},
+  ],
+  'memes-ch': [
+    {u:'timofey', text:'скинул мем', time:'11:11'},
+    {u:'timofey', text:'[изображение не загрузилось]', time:'11:11'},
+    {u:'timofey', text:'классика', time:'11:12', react:[{e:'😭',c:14}]},
+    {u:'bot', text:'', time:'11:13', embed:{title:'🖼️ Мем доставлен', desc:'Получатель: никто.\nСтатус: прочитано 0 раз.', foot:'КурьерБот • сегодня в 11:13'}},
+    {u:'caps', text:'А Я СКИНУЛ МЕМ В КАПСЕ', time:'11:15'},
+    {u:'mod', text:'это уже не мем, это крик о помощи', time:'11:16', react:[{e:'💀',c:22},{e:'🎯',c:8}]},
+  ],
+  flood: [
+    {u:'newbie', text:'а тут можно флудить?', time:'16:20'},
+    {u:'mod', text:'нельзя', time:'16:20'},
+    {u:'newbie', text:'а так?', time:'16:21'},
+    {u:'mod', text:'тоже нельзя', time:'16:21'},
+    {u:'timofey', text:'а я буду', time:'16:22'},
+    {u:'timofey', text:'флуд', time:'16:22'},
+    {u:'timofey', text:'флуд', time:'16:22'},
+    {u:'timofey', text:'флуд', time:'16:22', react:[{e:'🙄',c:9}]},
+    {u:'bot', text:'Обнаружен флуд. Применяю меры: ничего не делаю.', time:'16:23'},
+    {u:'lurker', text:'...', time:'16:30', react:[{e:'👀',c:15}]},
+    {u:'mod', text:'вот это я понимаю, содержательный диалог', time:'16:31'},
+  ],
+  help: [
+    {u:'newbie', text:'как поменять тему на светлую?', time:'10:00'},
+    {u:'mod', text:'нажми на шестерёнку', time:'10:01'},
+    {u:'newbie', text:'а где шестерёнка?', time:'10:02'},
+    {u:'mod', text:'в настройках', time:'10:02'},
+    {u:'newbie', text:'а где настройки?', time:'10:03'},
+    {u:'mod', text:'рядом с шестерёнкой', time:'10:03'},
+    {u:'newbie', text:'спасибо, очень помог', time:'10:04', react:[{e:'🤡',c:19},{e:'🔁',c:6}]},
+    {u:'bot', text:'', time:'10:05', embed:{title:'🛠️ Решение проблемы', desc:'Перезапустите Discord.\nЕсли не помогло — перезапустите себя.', foot:'КурьерБот • сегодня в 10:05'}},
+  ],
+
+  /* ===== MEMES ===== */
+  'mem-fresh': [
+    {sys:true, icon:'😹', text:'Добро пожаловать в <b>#свежие-мемы</b>. Свежесть гарантирована на 5 минут.'},
+    {u:'memer', text:'свежий мем, только из печи', time:'12:00'},
+    {u:'memer', text:'[мем]', time:'12:00'},
+    {u:'timofey', text:'это баян', time:'12:01'},
+    {u:'memer', text:'ему 3 минуты', time:'12:01'},
+    {u:'timofey', text:'баян', time:'12:01', react:[{e:'😹',c:9},{e:'💀',c:4}]},
+    {u:'caps', text:'А МНЕ СМЕШНО', time:'12:02'},
+    {u:'bot', text:'', time:'12:03', embed:{title:'🔎 Проверка мема', desc:'Оригинальность: 0%.\nСвежесть: 3 минуты.\nСмех: не обнаружен.', foot:'КурьерБот • сегодня в 12:03'}},
+    {u:'memer', text:'зато свежий', time:'12:04'},
+  ],
+  'mem-old': [
+    {u:'memer', text:'помните 2019 год?', time:'11:00'},
+    {u:'timofey', text:'нет', time:'11:00'},
+    {u:'memer', text:'и правильно', time:'11:01', react:[{e:'🗿',c:13}]},
+    {u:'bot', text:'Мемы 2019 года загружены. Смех не найден.', time:'11:02'},
+    {u:'caps', text:'А Я ВСЁ ЕЩЁ СМЕЮСЬ', time:'11:03'},
+  ],
+  'mem-repost': [
+    {u:'memer', text:'украл у конкурентов', time:'10:00'},
+    {u:'caps', text:'ЭТО ЖЕ МОЙ МЕМ', time:'10:01'},
+    {u:'memer', text:'теперь наш', time:'10:01', react:[{e:'🤝',c:6},{e:'🏴‍☠️',c:8}]},
+    {u:'timofey', text:'репост с того же сервера — это уже карма', time:'10:02'},
+  ],
+  'mem-oc': [
+    {u:'memer', text:'оригинальный контент', time:'09:00'},
+    {u:'timofey', text:'это украдено', time:'09:01'},
+    {u:'memer', text:'оригинально украдено', time:'09:01', react:[{e:'🎨',c:5},{e:'😂',c:11}]},
+    {u:'bot', text:'', time:'09:02', embed:{title:'🕵️ Проверка на оригинальность', desc:'Найдено совпадений: 14.\nОригинальных: 0.', foot:'КурьерБот • сегодня в 09:02'}},
+  ],
+
+  /* ===== ANIME ===== */
+  'an-titles': [
+    {sys:true, icon:'🌸', text:'Ты вошёл в <b>#обсуждение-тайтлов</b>. Спойлеры формально запрещены.'},
+    {u:'animefan', text:'кто смотрел последнюю серию?', time:'18:00'},
+    {u:'newbie', text:'я только начал', time:'18:01'},
+    {u:'animefan', text:'тогда не заходи в #спойлеры-без-спойлеров', time:'18:01'},
+    {u:'newbie', text:'уже зашёл', time:'18:02', react:[{e:'💀',c:17}]},
+    {u:'caps', text:'А Я СМОТРЮ ТОЛЬКО ОПЕНИНГ', time:'18:03'},
+  ],
+  'an-waifu': [
+    {u:'animefan', text:'моя вайфу — лучшая', time:'17:00'},
+    {u:'timofey', text:'твоя вайфу — 2D', time:'17:01'},
+    {u:'animefan', text:'и что', time:'17:01'},
+    {u:'caps', text:'МОЯ ВАЙФУ — ПРОГРАММА', time:'17:02', react:[{e:'🌸',c:8},{e:'😂',c:12}]},
+    {u:'animefan', text:'это уже не вайфу, это рабочий стол', time:'17:03'},
+  ],
+  'an-spoil': [
+    {u:'animefan', text:'он умирает в конце', time:'16:00'},
+    {u:'newbie', text:'ЗАЧЕМ', time:'16:01'},
+    {u:'animefan', text:'ты сам зашёл в канал', time:'16:01', react:[{e:'💀',c:24},{e:'🎯',c:9}]},
+    {u:'bot', text:'', time:'16:02', embed:{title:'💣 Спойлер доставлен', desc:'Удовольствие от просмотра: 0%.\nВиноват: ты.', foot:'КурьерБот • сегодня в 16:02'}},
+  ],
+  'an-subs': [
+    {u:'timofey', text:'сабы лучше', time:'15:00'},
+    {u:'animefan', text:'озвучка лучше', time:'15:00'},
+    {u:'caps', text:'А Я ВООБЩЕ БЕЗ ЗВУКА СМОТРЮ', time:'15:01'},
+    {u:'mod', text:'гениально', time:'15:02', react:[{e:'💀',c:31},{e:'🧠',c:7}]},
+    {u:'timofey', text:'закрыли тему', time:'15:03'},
+  ],
+
+  /* ===== DOTA ===== */
+  'do-find': [
+    {sys:true, icon:'⚔️', text:'Добро пожаловать в <b>#поиск-игры</b>. Пятый всегда убегает.'},
+    {u:'doter', text:'ищем пятого, плюс', time:'20:00'},
+    {u:'timofey', text:'го', time:'20:01'},
+    {u:'doter', text:'ты же мид', time:'20:01'},
+    {u:'timofey', text:'и что', time:'20:01'},
+    {u:'doter', text:'нет', time:'20:02'},
+    {u:'caps', text:'А МОЖНО Я', time:'20:02'},
+    {u:'doter', text:'нет', time:'20:02', react:[{e:'💀',c:19},{e:'⚔️',c:6}]},
+    {u:'bot', text:'', time:'20:03', embed:{title:'🔍 Поиск игрока', desc:'Найдено: 0.\nПричина: все миды.', foot:'КурьерБот • сегодня в 20:03'}},
+  ],
+  'do-mid': [
+    {u:'doter', text:'мид виноват', time:'19:00'},
+    {u:'timofey', text:'мид — это ты', time:'19:01'},
+    {u:'doter', text:'и что', time:'19:01'},
+    {u:'caps', text:'ВИНОВАТ МИД', time:'19:02', react:[{e:'⚔️',c:14},{e:'🤡',c:8}]},
+    {u:'mod', text:'всегда виноват мид. даже если мид — я.', time:'19:03'},
+  ],
+  'do-rep': [
+    {u:'doter', text:'зарепортил всех', time:'18:00'},
+    {u:'timofey', text:'включая себя?', time:'18:01'},
+    {u:'doter', text:'да', time:'18:01', react:[{e:'😂',c:7}]},
+    {u:'bot', text:'Репорт принят. Рассмотрение: никогда.', time:'18:02'},
+  ],
+  'do-mmr': [
+    {u:'doter', text:'я не виноват, что у меня 500 ммр', time:'17:00'},
+    {u:'timofey', text:'а кто виноват', time:'17:01'},
+    {u:'doter', text:'тиммейты', time:'17:01'},
+    {u:'caps', text:'И МИД', time:'17:02', react:[{e:'🎯',c:10},{e:'💀',c:5}]},
+    {u:'mod', text:'это не канал, это групповая терапия', time:'17:03'},
+  ],
+
+  /* ===== STUDY ===== */
+  'st-dead': [
+    {sys:true, icon:'📚', text:'Ты вошёл в <b>#дедлайн-завтра</b>. Он правда завтра.'},
+    {u:'student', text:'дедлайн завтра', time:'21:00'},
+    {u:'newbie', text:'а ты сделал?', time:'21:01'},
+    {u:'student', text:'нет', time:'21:01'},
+    {u:'newbie', text:'а что делаешь?', time:'21:02'},
+    {u:'student', text:'сижу тут', time:'21:02', react:[{e:'💀',c:16},{e:'📚',c:4}]},
+    {u:'bot', text:'', time:'21:03', embed:{title:'⏰ Напоминание', desc:'До дедлайна: 6 часов.\nПрогресс: 0%.', foot:'КурьерБот • сегодня в 21:03'}},
+  ],
+  'st-mot': [
+    {u:'student', text:'всё, начинаю учиться', time:'20:00'},
+    {u:'student', text:'через 5 минут', time:'20:05'},
+    {u:'student', text:'ну ладно, через 10', time:'20:15', react:[{e:'😭',c:12}]},
+    {u:'lurker', text:'...', time:'20:30'},
+    {u:'mod', text:'мотивация истекла. продлите подписку.', time:'20:31'},
+  ],
+  'st-proc': [
+    {u:'student', text:'я прокрастинирую', time:'19:00'},
+    {u:'newbie', text:'а что делаешь?', time:'19:01'},
+    {u:'student', text:'пишу о том, что прокрастинирую', time:'19:01'},
+    {u:'mod', text:'это тоже прокрастинация', time:'19:02', react:[{e:'💀',c:21},{e:'🧠',c:9}]},
+  ],
+  'st-notes': [
+    {u:'student', text:'где мои конспекты', time:'18:00'},
+    {u:'newbie', text:'ты их не писал', time:'18:01'},
+    {u:'student', text:'я точно писал', time:'18:01'},
+    {u:'bot', text:'Конспекты не найдены. Как и мотивация.', time:'18:02', react:[{e:'📄',c:3}]},
+  ],
+
+  /* ===== VOID ===== */
+  'vd-echo': [
+    {sys:true, icon:'🕳️', text:'<b>Никто</b> создал канал #эхо'},
+    {u:'bot', text:'...', time:'00:00', react:[{e:'👻',c:1}]},
+  ],
+  'vd-void': [
+    {sys:true, icon:'🕳️', text:'Этот канал пуст. И всегда был.'},
+    {u:'ghost', text:'я здесь', time:'03:33', react:[{e:'👻',c:2}]},
+  ],
+
+  /* ===== HOME / DM ===== */
+  'dm-bot': [
+    {sys:true, icon:'🤖', text:'Личные сообщения с <b>КурьерБот</b>'},
+    {u:'bot', text:'Здравствуйте! У вас 1 новое сообщение.', time:'12:00'},
+    {u:'bot', text:'Оно пустое.', time:'12:00'},
+    {u:'me', text:'зачем', time:'12:01'},
+    {u:'bot', text:'Так надо.', time:'12:01', react:[{e:'🤖',c:1}]},
+  ],
+  'dm-timofey': [
+    {sys:true, icon:'😠', text:'Личные сообщения с <b>ТоксичныйТимофей</b>'},
+    {u:'timofey', text:'ты меня игнорируешь', time:'15:00'},
+    {u:'me', text:'нет', time:'15:01'},
+    {u:'timofey', text:'игнорируешь', time:'15:01'},
+    {u:'me', text:'ок', time:'15:02'},
+    {u:'timofey', text:'вот видишь', time:'15:02', react:[{e:'😂',c:3}]},
+  ],
+  'dm-spam': [
+    {sys:true, icon:'🎁', text:'Личные сообщения со <b>Спам-папкой</b>'},
+    {sys:true, icon:'🎉', text:'Поздравляем! Вы выиграли <b>1 000 000 рублей</b>!'},
+    {sys:true, icon:'💰', text:'Чтобы получить приз, ничего не делайте.'},
+    {u:'me', text:'спасибо', time:'10:00'},
+    {u:'bot', text:'Приз уже забрали. Вы опоздали на 4 года.', time:'10:01', react:[{e:'💸',c:0}]},
+  ],
+};
+
+const MEMBERS_BY_GUILD = {
+  main: [
+    {title:'Владелец сервера', users:['owner']},
+    {title:'Модератор (спит)', users:['mod']},
+    {title:'Боты', users:['bot']},
+    {title:'В сети — 4', users:['me','timofey','caps','newbie','voice']},
+    {title:'Не в сети — 1', users:['lurker'], offline:true},
+  ],
+  memes: [
+    {title:'Главный мемер', users:['memer']},
+    {title:'Боты', users:['bot']},
+    {title:'В сети — 3', users:['me','timofey','caps']},
+    {title:'Не в сети — 1', users:['lurker'], offline:true},
+  ],
+  anime: [
+    {title:'Аниме-эксперт', users:['animefan']},
+    {title:'Боты', users:['bot']},
+    {title:'В сети — 3', users:['me','newbie','caps']},
+    {title:'Не в сети — 1', users:['lurker'], offline:true},
+  ],
+  dota: [
+    {title:'Керри (в мечтах)', users:['doter']},
+    {title:'Модератор (спит)', users:['mod']},
+    {title:'Боты', users:['bot']},
+    {title:'В сети — 3', users:['me','timofey','caps']},
+  ],
+  study: [
+    {title:'Студент', users:['student']},
+    {title:'Модератор (спит)', users:['mod']},
+    {title:'Боты', users:['bot']},
+    {title:'В сети — 2', users:['me','newbie']},
+    {title:'Не в сети — 1', users:['lurker'], offline:true},
+  ],
+  void: [
+    {title:'Пустота', users:['ghost'], offline:true},
+  ],
+  home: [],
+};
+
+const BOT_REPLIES = [
+  'Сообщение получено. Обработано. Проигнорировано.',
+  'Интересная мысль. Я её сохранил в /dev/null.',
+  'Согласно моим данным, это сообщение прочитали 0 человек.',
+  'Понял. Принял. Забыл.',
+  'Вы уверены? Я — нет.',
+  'Это лучшее, что я читал за сегодня. Планка низкая.',
+  'Записал в блокнот. Блокнот потерял.',
+  'Подтверждаю. Источник: доверяй мне.',
+  'Ваше сообщение важно для нас. Особенно для нас. Не для других.',
+  'Я бот, а не волшебник. Хотя...',
+];
+
+const HUMAN_REPLIES = [
+  'а',
+  'согласен',
+  'не согласен',
+  'кто это написал',
+  'опять ты',
+  'ну да, ну да',
+  'это было сильно',
+  'мне кажется, или тут стало тихо',
+  'я читаю, но не отвечаю',
+];
+
+/* =========================================================
+   СОСТОЯНИЕ
+   ========================================================= */
+const state = {
+  guild: 'main',          // активный сервер
+  channel: 'general',     // активный канал
+  lastChannel: { main: 'general' }, // последний канал на каждом сервере
+  messages: JSON.parse(JSON.stringify(MESSAGES)),
+  muted: false,
+  deafened: false,
+  typing: false,
+  collapsed: new Set(),
+  read: new Set(['general']),
+  guildRead: new Set(['main']),
+  reactions: {}, // key -> Set of emoji
+};
+
+/* =========================================================
+   ХЕЛПЕРЫ
+   ========================================================= */
+const $ = (s, r=document) => r.querySelector(s);
+const el = (tag, cls, html) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html != null) n.innerHTML = html;
+  return n;
+};
+function avatar(u, size){
+  const a = el('div','avatar');
+  a.style.background = u.color;
+  a.textContent = u.emoji;
+  if (size) { a.style.width = a.style.height = size+'px'; a.style.fontSize = (size*0.5)+'px'; }
+  return a;
+}
+function nowTime(){
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function toast(msg){
+  const wrap = $('#toastWrap');
+  const t = el('div','toast', msg);
+  wrap.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+/* =========================================================
+   РЕНДЕР РЕЙЛА
+   ========================================================= */
+function renderRail(){
+  const rail = $('#rail');
+  rail.innerHTML = '';
+  GUILDS.forEach(g => {
+    const active = g.id === state.guild;
+    const badge = (g.badge && !state.guildRead.has(g.id)) ? g.badge : 0;
+    const b = el('button','guild'+(active?' active':'')+(g.home?' home':''));
+    b.dataset.id = g.id;
+    b.innerHTML = '<span class="pill"></span>' + g.emoji +
+      (badge ? `<span class="badge">${badge > 99 ? '99+' : badge}</span>` : '');
+    b.addEventListener('mouseenter', e => showTip(e, g.name));
+    b.addEventListener('mouseleave', hideTip);
+    b.addEventListener('click', () => openGuild(g.id));
+    rail.appendChild(b);
+    if (g.id === 'home') rail.appendChild(el('div','divider'));
+  });
+  // кнопка "+"
+  const plus = el('button','guild','＋');
+  plus.style.fontSize = '24px';
+  plus.addEventListener('mouseenter', e => showTip(e,'Добавить сервер'));
+  plus.addEventListener('mouseleave', hideTip);
+  plus.addEventListener('click', ()=>toast('Создание сервера недоступно. У вас уже есть этот.'));
+  rail.appendChild(plus);
+}
+
+let tipEl = null;
+function showTip(e, text){
+  const tip = $('#tooltip');
+  tip.textContent = text;
+  const r = e.currentTarget.getBoundingClientRect();
+  tip.style.left = (r.right + 12) + 'px';
+  tip.style.top = (r.top + r.height/2) + 'px';
+  tip.classList.add('show');
+}
+function hideTip(){ $('#tooltip').classList.remove('show'); }
+
+/* =========================================================
+   РЕНДЕР КАНАЛОВ
+   ========================================================= */
+function renderChannels(){
+  const list = $('#channelList');
+  list.innerHTML = '';
+  const guildChannels = CHANNELS.filter(c => c.guild === state.guild);
+  const cats = [];
+  guildChannels.forEach(c => { if (!cats.includes(c.cat)) cats.push(c.cat); });
+
+  cats.forEach(cat => {
+    const catEl = el('div','category'+(state.collapsed.has(cat)?' collapsed':''));
+    catEl.innerHTML = `<span class="arrow">▾</span>${cat}`;
+    catEl.addEventListener('click', () => {
+      if (state.collapsed.has(cat)) state.collapsed.delete(cat);
+      else state.collapsed.add(cat);
+      renderChannels();
+    });
+    list.appendChild(catEl);
+    if (state.collapsed.has(cat)) return;
+
+    guildChannels.filter(c => c.cat === cat).forEach(c => {
+      const ch = el('div','channel');
+      const unread = (c.unread && !state.read.has(c.id)) ? c.unread : 0;
+      const voiceHere = c.type === 'voice' && voice.joined && voice.channel === c.id && voice.guild === c.guild;
+      if (c.id === state.channel) ch.classList.add('active');
+      if (unread) ch.classList.add('unread');
+      if (voiceHere) ch.classList.add('voice-joined');
+      const icon = c.type === 'voice' ? '🔊' : c.type === 'dm' ? '@' : '#';
+      const count = voiceHere ? Object.keys(voice.members).length : null;
+      ch.innerHTML = `<span class="hash">${icon}</span><span class="label">${c.name}</span>` +
+        (unread ? `<span class="unread">${unread}</span>` : '') +
+        (c.type === 'voice' ? `<span class="voicers">${count != null ? count + ' в сети' : (c.limit||'0/99')}</span>` : '');
+      ch.addEventListener('click', () => selectChannel(c));
+      list.appendChild(ch);
+
+      if (c.type === 'voice'){
+        let rows = [];
+        if (voiceHere){
+          rows = Object.values(voice.members).map(m => ({
+            emoji: m.emoji || '🙂', name: m.name, muted: m.muted
+          }));
+        } else if (c.users && c.users.length){
+          rows = c.users.map(uid => ({emoji: USERS[uid].emoji, name: USERS[uid].name, muted: false}));
+        }
+        if (rows.length){
+          const vu = el('div','voice-users');
+          rows.forEach(u => {
+            vu.appendChild(el('div','voice-user',
+              `<span class="dot"></span>${u.emoji} ${escapeHtml(u.name)}${u.muted ? ' 🔇' : ''}`));
+          });
+          list.appendChild(vu);
+        }
+      }
+    });
+  });
+}
+
+function selectChannel(c){
+  if (c.type === 'voice'){
+    openVoicePanel(c);
+    return;
+  }
+  state.guild = c.guild;
+  state.channel = c.id;
+  state.lastChannel[c.guild] = c.id;
+  state.read.add(c.id);
+  state.guildRead.add(c.guild);
+
+  const guild = GUILDS.find(g => g.id === c.guild);
+  if (guild) $('#serverName').textContent = guild.name;
+
+  renderRail();
+  renderChannels();
+  renderChat();
+  renderMembers();
+  $('#input').placeholder = (c.type === 'dm' ? 'Написать ' : 'Написать в #') + c.name;
+  if (window.innerWidth <= 680) $('#channels').classList.remove('open');
+}
+
+// Переход на сервер (кнопки слева)
+function openGuild(id){
+  const guild = GUILDS.find(g => g.id === id);
+  if (!guild) return;
+  state.guild = id;
+  state.guildRead.add(id);
+
+  const chans = CHANNELS.filter(c => c.guild === id && c.type !== 'voice');
+  let target = state.lastChannel[id];
+  if (!target || !chans.some(c => c.id === target)) target = chans[0] && chans[0].id;
+
+  if (target){
+    state.channel = target;
+    state.lastChannel[id] = target;
+    state.read.add(target);
+  }
+
+  $('#serverName').textContent = guild.name;
+  renderRail();
+  renderChannels();
+  renderChat();
+  renderMembers();
+
+  const isDM = id === 'home';
+  $('#input').placeholder = isDM ? 'Написать сообщение' : 'Написать в #' + (chans.find(c => c.id === target)?.name || '');
+  if (window.innerWidth <= 680) $('#channels').classList.remove('open');
+}
+
+/* =========================================================
+   РЕНДЕР ЧАТА
+   ========================================================= */
+function renderChat(){
+  const ch = CHANNELS.find(c => c.id === state.channel);
+  const isDM = ch.type === 'dm';
+  const icon = isDM ? '@' : '#';
+
+  $('#chatIcon').textContent = icon;
+  $('#chatTitle').textContent = ch.name;
+  $('#chatTopic').textContent = ch.topic || '';
+
+  const box = $('#messages');
+  box.innerHTML = '';
+
+  // приветствие
+  const w = el('div','welcome');
+  w.innerHTML = `<div class="big">${icon}</div>
+    <h2>${isDM ? 'Личные сообщения с ' + ch.name : 'Добро пожаловать в #' + ch.name}!</h2>
+    <p>${isDM ? 'Это начало вашей переписки с ' + ch.name + '.' : 'Это начало канала #' + ch.name + '.'} ${ch.topic ? 'Тема: ' + ch.topic + '.' : ''}</p>`;
+  box.appendChild(w);
+
+  const msgs = state.messages[state.channel] || [];
+  let prevUser = null;
+  msgs.forEach((m, i) => {
+    if (m.sys){
+      const s = el('div','msg system');
+      s.innerHTML = `<div class="sys-icon">${m.icon||'➡️'}</div><div class="msg-text">${m.text}</div>`;
+      box.appendChild(s);
+      prevUser = null;
+      return;
+    }
+    const u = USERS[m.u];
+    const grouped = prevUser === m.u && !m.embed;
+    const node = el('div','msg'+(grouped?' grouped':''));
+
+    const av = avatar(u);
+    if (grouped) av.classList.add('hidden');
+    node.appendChild(av);
+
+    const body = el('div','msg-body');
+    if (!grouped){
+      const head = el('div','msg-head');
+      head.innerHTML = `<span class="author" style="color:${u.color}">${u.name}</span>` +
+        (u.bot ? '<span class="bot-tag">БОТ</span>' : '') +
+        `<span class="time">сегодня в ${m.time||nowTime()}</span>`;
+      body.appendChild(head);
+    }
+    if (m.text) body.appendChild(el('div','msg-text', m.text));
+    if (m.embed){
+      const e = el('div','embed');
+      e.innerHTML = `<div class="e-title">${m.embed.title}</div>
+        <div class="e-desc">${m.embed.desc.replace(/\n/g,'<br>')}</div>
+        <div class="e-foot">${m.embed.foot||''}</div>`;
+      body.appendChild(e);
+    }
+    if (m.react && m.react.length){
+      const rb = el('div','reactions');
+      m.react.forEach(r => {
+        const key = state.channel + ':' + i + ':' + r.e;
+        const mine = state.reactions[key];
+        const b = el('button','react'+(mine?' mine':''));
+        b.innerHTML = `${r.e}<span class="cnt">${r.c + (mine?1:0)}</span>`;
+        b.addEventListener('click', () => {
+          if (state.reactions[key]) delete state.reactions[key];
+          else state.reactions[key] = true;
+          renderChat();
+        });
+        rb.appendChild(b);
+      });
+      // кнопка добавить реакцию
+      const add = el('button','react','😀＋');
+      add.addEventListener('click', ()=>toast('Выберите реакцию... или не выбирайте.'));
+      rb.appendChild(add);
+      body.appendChild(rb);
+    }
+    node.appendChild(body);
+    box.appendChild(node);
+    prevUser = m.u;
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+/* =========================================================
+   РЕНДЕР УЧАСТНИКОВ
+   ========================================================= */
+function renderMembers(){
+  const box = $('#members');
+  const isDM = state.guild === 'home';
+  box.style.display = isDM ? 'none' : '';
+  box.innerHTML = '';
+  if (isDM) return;
+
+  (MEMBERS_BY_GUILD[state.guild] || []).forEach(g => {
+    box.appendChild(el('div','group-title', g.title));
+    g.users.forEach(uid => {
+      const u = USERS[uid];
+      const m = el('div','member'+(g.offline?' offline':''));
+      const av = avatar(u);
+      av.style.position = 'relative';
+      av.appendChild(el('span','status '+u.status));
+      m.appendChild(av);
+      const info = el('div','m-info');
+      info.innerHTML = `<div class="m-name" style="color:${u.status==='offline'?u.color:u.color}">${u.name}${u.bot?'<span class="bot-tag">БОТ</span>':''}</div>
+        <div class="m-sub">${u.role}</div>`;
+      m.appendChild(info);
+      m.addEventListener('click', ()=>{
+        if (uid === 'me') { toast('Это вы. Привет.'); return; }
+        toast(`${u.name}: ${u.status==='offline'?'не в сети, но осуждает':u.status==='idle'?'отошёл на 4 года':'в сети и не отвечает'}`);
+      });
+      box.appendChild(m);
+    });
+  });
+}
+
+/* =========================================================
+   ОТПРАВКА СООБЩЕНИЙ
+   ========================================================= */
+const input = $('#input');
+const composer = $('#composer');
+
+function autoGrow(){
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 180) + 'px';
+  composer.classList.toggle('has-text', input.value.trim().length > 0);
+}
+input.addEventListener('input', autoGrow);
+
+function sendMessage(){
+  const text = input.value.trim();
+  if (!text) return;
+  const chan = state.channel; // фиксируем канал на момент отправки
+  if (!state.messages[chan]) state.messages[chan] = [];
+  state.messages[chan].push({u:'me', text, time:nowTime()});
+  input.value = '';
+  autoGrow();
+  renderChat();
+
+  // эхо-реакция
+  setTimeout(()=>{
+    const who = Math.random() < 0.4 ? 'bot' : (Math.random() < 0.5 ? 'mod' : 'timofey');
+    if (state.channel === chan) showTyping(who);
+    setTimeout(()=>{
+      if (state.channel === chan) hideTyping();
+      const reply = who === 'bot'
+        ? BOT_REPLIES[Math.floor(Math.random()*BOT_REPLIES.length)]
+        : HUMAN_REPLIES[Math.floor(Math.random()*HUMAN_REPLIES.length)];
+      state.messages[chan].push({u:who, text:reply, time:nowTime()});
+      // перерисовываем только если пользователь всё ещё в этом канале
+      if (state.channel === chan) renderChat();
+    }, 1100 + Math.random()*900);
+  }, 500);
+}
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+$('#sendBtn').addEventListener('click', sendMessage);
+
+function showTyping(uid){
+  const u = USERS[uid];
+  const line = $('#typingLine');
+  line.innerHTML = `<span>${u.name} печатает</span><span class="dots"><i></i><i></i><i></i></span>`;
+}
+function hideTyping(){ $('#typingLine').innerHTML = ''; }
+
+/* =========================================================
+   КНОПКИ
+   ========================================================= */
+$('#btnMic').addEventListener('click', e => {
+  if (voice.joined || voice.connecting){ toggleVoiceMute(); return; }
+  state.muted = !state.muted;
+  e.currentTarget.classList.toggle('off', state.muted);
+  toast(state.muted ? 'Микрофон выключен. Как и всегда.' : 'Микрофон включён. Соседи уже жалуются.');
+});
+$('#btnDeaf').addEventListener('click', e => {
+  if (voice.joined || voice.connecting){ toggleVoiceDeafen(); return; }
+  state.deafened = !state.deafened;
+  e.currentTarget.classList.toggle('off', state.deafened);
+  toast(state.deafened ? 'Наушники отключены. Теперь вы слышите всё. Соболезнуем.' : 'Наушники включены. Тишина.');
+});
+$('#btnSettings').addEventListener('click', ()=>openSettings('account'));
+$('#serverHead').addEventListener('click', ()=>toast('Это ваш сервер. Уйти некуда.'));
+
+document.querySelectorAll('.h-icons .icon-btn').forEach(b=>{
+  if (b.id === 'btnSearch') return;
+  b.addEventListener('click', ()=>toast('Функция «'+b.title+'» временно недоступна. Временно = всегда.'));
+});
+document.querySelectorAll('.composer .c-btn').forEach(b=>{
+  b.addEventListener('click', ()=>toast('«'+b.title+'» не работает. Зато красиво.'));
+});
+
+$('#hamburger').addEventListener('click', ()=>$('#channels').classList.toggle('open'));
+
+// Nitro modal
+$('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') $('#overlay').classList.remove('show'); });
+$('#modalClose').addEventListener('click', ()=>$('#overlay').classList.remove('show'));
+$('#buyBtn').addEventListener('click', ()=>{
+  $('#overlay').classList.remove('show');
+  toast('Nitro* не куплен. Ваши деньги в безопасности. Пока что.');
+});
+
+/* =========================================================
+   ПЕРЕКЛЮЧЕНИЕ КАНАЛОВ
+   ========================================================= */
+const switchableChannels = () => CHANNELS.filter(c => c.type !== 'voice');
+const guildName = id => (GUILDS.find(g => g.id === id) || {}).name || id;
+
+// --- Alt+↑ / Alt+↓ — листать каналы текущего сервера ---
+function cycleChannel(dir){
+  const list = switchableChannels().filter(c => c.guild === state.guild);
+  if (!list.length) return;
+  let idx = list.findIndex(c => c.id === state.channel);
+  if (idx < 0) idx = 0;
+  idx = (idx + dir + list.length) % list.length;
+  selectChannel(list[idx]);
+}
+
+// --- Быстрый переход по каналам (Ctrl+K) ---
+const qs = {
+  open: false,
+  sel: 0,
+  items: [],
+  overlay: $('#qsOverlay'),
+  input: $('#qsInput'),
+  list: $('#qsList'),
+};
+
+function qsRender(){
+  const q = qs.input.value.trim().toLowerCase();
+  qs.items = switchableChannels().filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    c.cat.toLowerCase().includes(q) ||
+    guildName(c.guild).toLowerCase().includes(q)
+  );
+  if (qs.sel >= qs.items.length) qs.sel = Math.max(0, qs.items.length - 1);
+  qs.list.innerHTML = '';
+
+  if (!qs.items.length){
+    qs.list.appendChild(el('div','qs-empty','Ничего не найдено.<br>Попробуй другой канал — этот явно не тот.'));
+    return;
+  }
+
+  qs.items.forEach((c, i) => {
+    const item = el('div','qs-item' + (i === qs.sel ? ' sel' : ''));
+    const icon = c.type === 'dm' ? '@' : '#';
+    item.innerHTML = `<span class="hash">${icon}</span><span class="name">${c.name}</span>` +
+      (c.id === state.channel ? '<span class="cur">вы здесь</span>' : '') +
+      `<span class="cat">${guildName(c.guild)}</span>`;
+    item.addEventListener('mousedown', e => { e.preventDefault(); qsChoose(i); });
+    qs.list.appendChild(item);
+  });
+}
+
+function qsScroll(){
+  const sel = qs.list.querySelector('.qs-item.sel');
+  if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+
+function qsOpen(){
+  qs.open = true;
+  qs.sel = 0;
+  qs.input.value = '';
+  qs.overlay.classList.add('show');
+  qsRender();
+  qs.input.focus();
+}
+
+function qsClose(){
+  qs.open = false;
+  qs.overlay.classList.remove('show');
+}
+
+function qsChoose(i){
+  const c = qs.items[i];
+  if (!c) return;
+  qsClose();
+  selectChannel(c);
+}
+
+$('#btnSearch').addEventListener('click', qsOpen);
+
+qs.input.addEventListener('input', () => { qs.sel = 0; qsRender(); });
+
+qs.input.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown'){
+    e.preventDefault();
+    if (!qs.items.length) return;
+    qs.sel = (qs.sel + 1) % qs.items.length;
+    qsRender(); qsScroll();
+  } else if (e.key === 'ArrowUp'){
+    e.preventDefault();
+    if (!qs.items.length) return;
+    qs.sel = (qs.sel - 1 + qs.items.length) % qs.items.length;
+    qsRender(); qsScroll();
+  } else if (e.key === 'Enter'){
+    e.preventDefault();
+    qsChoose(qs.sel);
+  } else if (e.key === 'Escape'){
+    e.preventDefault();
+    qsClose();
+  }
+});
+
+qs.overlay.addEventListener('mousedown', e => {
+  if (e.target === qs.overlay) qsClose();
+});
+
+// --- Глобальные горячие клавиши ---
+document.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+
+  // Ctrl+K / Cmd+K — быстрый переход по каналам
+  if (mod && e.key.toLowerCase() === 'k'){
+    e.preventDefault();
+    qs.open ? qsClose() : qsOpen();
+    return;
+  }
+
+  // Пока открыт поиск, остальные шорткаты не мешают
+  if (qs.open) return;
+
+  // При открытых настройках тоже не мешаем
+  if ($('#settingsOverlay').classList.contains('show')) return;
+
+  // При открытой панели голосового канала тоже
+  if ($('#voiceOverlay').classList.contains('show')) return;
+
+  // Alt+↑ / Alt+↓ — предыдущий / следующий канал
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+    e.preventDefault();
+    cycleChannel(e.key === 'ArrowDown' ? 1 : -1);
+  }
+});
+
+/* =========================================================
+   НАСТРОЙКИ
+   ========================================================= */
+const DEFAULT_PREFS = {
+  theme:'dark', compact:false, fontSize:15, showMembers:true, animations:true,
+  sounds:true, desktop:true, mentionsOnly:false,
+  inVol:80, outVol:100, noise:true, echo:false,
+  language:'ru', status:'online',
+};
+const prefs = Object.assign({}, DEFAULT_PREFS);
+const STATUS_LABELS = {online:'в сети', idle:'отошёл', dnd:'не беспокоить', offline:'невидимка'};
+const AVATAR_EMOJIS = ['🙂','😎','🤓','😴','👽','🐸','🦊','🐼','🤖','👾','🎮','🔥'];
+const settingsBody = $('#settingsBody');
+let settingsTab = 'account';
+
+const escapeAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+function applyPrefs(){
+  document.body.classList.toggle('light', prefs.theme === 'light');
+  document.body.classList.toggle('midnight', prefs.theme === 'midnight');
+  document.body.classList.toggle('compact', prefs.compact);
+  document.body.classList.toggle('hide-members', !prefs.showMembers);
+  document.body.classList.toggle('no-anim', !prefs.animations);
+  document.documentElement.style.setProperty('--msg-font', prefs.fontSize + 'px');
+  USERS.me.status = prefs.status;
+  refreshMe();
+}
+
+function refreshMe(){
+  const b = document.querySelector('.me .info b');
+  if (b) b.textContent = USERS.me.name;
+  const s = document.querySelector('.me .info span');
+  if (s) s.textContent = STATUS_LABELS[prefs.status] || 'в сети';
+  const av = document.querySelector('.me .avatar');
+  if (av) av.textContent = USERS.me.emoji;
+  renderMembers();
+}
+
+function toggleHTML(pref, label, desc, on){
+  return `<div class="set-row">
+    <div class="info"><b>${label}</b><span>${desc}</span></div>
+    <button class="toggle ${on?'on':''}" data-pref="${pref}" aria-label="${label}"></button>
+  </div>`;
+}
+
+function tabAccount(){
+  return `
+    <h1 class="set-h1">Мой аккаунт</h1>
+    <p class="set-sub">Здесь можно притвориться кем-то другим. Никто не заметит.</p>
+    <div class="acc-head">
+      <div class="acc-avatar" id="accAvatar">${USERS.me.emoji}</div>
+      <div>
+        <div class="acc-name" id="accName">${USERS.me.name}</div>
+        <div class="acc-tag">${USERS.me.tag}</div>
+      </div>
+    </div>
+    <div class="set-section first">
+      <div class="set-label">Имя пользователя</div>
+      <div class="set-desc">Меняется везде. Даже в сообщениях, которые ты уже отправил.</div>
+      <input class="set-input" id="setUsername" maxlength="24" value="${escapeAttr(USERS.me.name)}">
+    </div>
+    <div class="set-section">
+      <div class="set-row">
+        <div class="info"><b>Статус</b><span>Что видят остальные участники</span></div>
+        <select class="set-select" id="setStatus">
+          <option value="online" ${prefs.status==='online'?'selected':''}>В сети</option>
+          <option value="idle" ${prefs.status==='idle'?'selected':''}>Отошёл</option>
+          <option value="dnd" ${prefs.status==='dnd'?'selected':''}>Не беспокоить</option>
+          <option value="offline" ${prefs.status==='offline'?'selected':''}>Невидимка</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="info"><b>Аватар</b><span>Сменить эмодзи. Nitro не нужен.</span></div>
+        <button class="set-btn" id="setAvatar">Сменить 🎲</button>
+      </div>
+    </div>
+    <div class="set-section">
+      <div class="set-label">Опасная зона</div>
+      <div class="set-desc">Кнопка, которая ничего не удалит.</div>
+      <button class="set-btn danger" id="setDelete">Удалить аккаунт</button>
+    </div>
+  `;
+}
+
+function tabAppearance(){
+  const themes = [
+    {id:'dark',     name:'Тёмная',   sub:'Классика',      bg:'#313338', side:'#2b2d31', rail:'#1e1f22'},
+    {id:'midnight', name:'Полночь',  sub:'Ещё темнее',    bg:'#191a1d', side:'#141518', rail:'#0b0c0e'},
+    {id:'light',    name:'Светлая',  sub:'Смелый выбор',  bg:'#ffffff', side:'#f2f3f5', rail:'#e3e5e8'},
+  ];
+  return `
+    <h1 class="set-h1">Внешний вид</h1>
+    <p class="set-sub">Настрой интерфейс под себя. Светлая тема существует. Мы проверяли.</p>
+    <div class="set-section first">
+      <div class="set-label">Тема</div>
+      <div class="set-desc">Тьма — это выбор. Но выбор есть.</div>
+      <div class="theme-cards">
+        ${themes.map(t=>`
+          <button class="theme-card ${prefs.theme===t.id?'active':''}" data-theme="${t.id}">
+            <div class="preview">
+              <i style="width:18%;background:${t.rail}"></i>
+              <i style="width:26%;background:${t.side}"></i>
+              <i style="width:56%;background:${t.bg}"></i>
+            </div>
+            <div class="tname">${t.name}</div>
+            <div class="tsub">${t.sub}</div>
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="set-section">
+      <div class="set-label">Сообщения</div>
+      ${toggleHTML('compact','Компактный режим','Больше сообщений на экране, меньше воздуха.', prefs.compact)}
+      <div class="set-row">
+        <div class="info"><b>Размер шрифта</b><span>Для тех, кто устал щуриться.</span></div>
+        <input type="range" class="range" id="setFont" min="13" max="20" step="1" value="${prefs.fontSize}">
+        <span class="range-val" id="setFontVal">${prefs.fontSize}px</span>
+      </div>
+    </div>
+    <div class="set-section">
+      <div class="set-label">Интерфейс</div>
+      ${toggleHTML('showMembers','Список участников','Показывать панель справа. Иногда лучше не видеть.', prefs.showMembers)}
+      ${toggleHTML('animations','Анимации','Плавность, которая ничего не ускоряет.', prefs.animations)}
+    </div>
+  `;
+}
+
+function tabNotifications(){
+  return `
+    <h1 class="set-h1">Уведомления</h1>
+    <p class="set-sub">Мы всё равно будем молчать. Но ты можешь настроить, как именно.</p>
+    <div class="set-section first">
+      ${toggleHTML('sounds','Звуки','Звук «дзынь» при новом сообщении.', prefs.sounds)}
+      ${toggleHTML('desktop','Уведомления на рабочий стол','Всплывать поверх всего. Особенно в 3 часа ночи.', prefs.desktop)}
+      ${toggleHTML('mentionsOnly','Только упоминания','Игнорировать всё, кроме @тебя. Смелое решение.', prefs.mentionsOnly)}
+    </div>
+    <div class="set-section">
+      <div class="set-label">Проверка</div>
+      <div class="set-desc">Убедись, что уведомления работают. Или что нет.</div>
+      <button class="set-btn blurple" id="testNotif">Отправить тестовое уведомление</button>
+    </div>
+  `;
+}
+
+function tabVoice(){
+  return `
+    <h1 class="set-h1">Голос и видео</h1>
+    <p class="set-sub">Микрофон всё равно не работает. Но ползунки двигаются красиво.</p>
+    <div class="set-section first">
+      <div class="set-label">Громкость</div>
+      <div class="set-row">
+        <div class="info"><b>Микрофон</b><span>Насколько громко тебя не слышно.</span></div>
+        <input type="range" class="range" id="setInVol" min="0" max="100" value="${prefs.inVol}">
+        <span class="range-val" id="setInVolVal">${prefs.inVol}%</span>
+      </div>
+      <div class="set-row">
+        <div class="info"><b>Звук</b><span>Громкость чужих криков.</span></div>
+        <input type="range" class="range" id="setOutVol" min="0" max="100" value="${prefs.outVol}">
+        <span class="range-val" id="setOutVolVal">${prefs.outVol}%</span>
+      </div>
+    </div>
+    <div class="set-section">
+      <div class="set-label">Обработка</div>
+      ${toggleHTML('noise','Шумоподавление','Убирает шум. Иногда вместе с голосом.', prefs.noise)}
+      ${toggleHTML('echo','Эхоподавление','Чтобы не слышать себя дважды.', prefs.echo)}
+    </div>
+    <div class="set-section">
+      <button class="set-btn blurple" id="testMic">Проверить микрофон</button>
+    </div>
+  `;
+}
+
+function tabLanguage(){
+  return `
+    <h1 class="set-h1">Язык</h1>
+    <p class="set-sub">Смена языка не переводит шутки. Они и так на русском.</p>
+    <div class="set-section first">
+      <div class="set-row">
+        <div class="info"><b>Язык интерфейса</b><span>Официально поддерживается один.</span></div>
+        <select class="set-select" id="setLang">
+          <option value="ru" ${prefs.language==='ru'?'selected':''}>Русский</option>
+          <option value="en" ${prefs.language==='en'?'selected':''}>English (не работает)</option>
+          <option value="dota" ${prefs.language==='dota'?'selected':''}>Дота-язык (мид виноват)</option>
+          <option value="cat" ${prefs.language==='cat'?'selected':''}>Мяу</option>
+        </select>
+      </div>
+      <div class="set-note">Подсказка: «мид виноват» переводится на любой язык одинаково.</div>
+    </div>
+  `;
+}
+
+function tabAdvanced(){
+  const totalMsgs = Object.values(state.messages).reduce((n,a)=>n+a.length,0);
+  return `
+    <h1 class="set-h1">Продвинутые</h1>
+    <p class="set-sub">Для тех, кто нажал шестерёнку и не остановился.</p>
+    <div class="set-section first">
+      <div class="set-kv"><span>Версия клиента</span><b>0.0.1-parody</b></div>
+      <div class="set-kv"><span>Текущий сервер</span><b>${guildName(state.guild)}</b></div>
+      <div class="set-kv"><span>Сообщений в памяти</span><b>${totalMsgs}</b></div>
+      <div class="set-kv"><span>Настоящий Discord</span><b>не установлен</b></div>
+    </div>
+    <div class="set-section">
+      <div class="set-label">Действия</div>
+      <div class="set-desc">Осторожно: некоторые кнопки действительно что-то делают.</div>
+      <div class="set-actions">
+        <button class="set-btn" id="resetChats">Сбросить переписки</button>
+        <button class="set-btn" id="clearCache">Очистить кэш</button>
+        <button class="set-btn" id="exportData">Экспорт данных</button>
+        <button class="set-btn danger" id="resetSettings">Сбросить настройки</button>
+      </div>
+      <div class="set-note">«Очистить кэш» ничего не чистит. «Экспорт данных» ничего не экспортирует. Зато честно.</div>
+    </div>
+  `;
+}
+
+function renderSettings(tab){
+  settingsTab = tab || 'account';
+  document.querySelectorAll('.snav').forEach(b => b.classList.toggle('active', b.dataset.tab === settingsTab));
+  const map = {account:tabAccount, appearance:tabAppearance, notifications:tabNotifications,
+               voice:tabVoice, language:tabLanguage, advanced:tabAdvanced};
+  settingsBody.innerHTML = (map[settingsTab] || tabAccount)();
+  settingsBody.scrollTop = 0;
+
+  // общие переключатели
+  settingsBody.querySelectorAll('[data-pref]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const k = btn.dataset.pref;
+      prefs[k] = !prefs[k];
+      btn.classList.toggle('on', prefs[k]);
+      applyPrefs();
+    });
+  });
+
+  if (settingsTab === 'account'){
+    const un = $('#setUsername');
+    un.addEventListener('input', ()=>{
+      USERS.me.name = un.value.trim() || 'Ты';
+      const an = $('#accName'); if (an) an.textContent = USERS.me.name;
+      refreshMe();
+      renderChat();
+    });
+    $('#setStatus').addEventListener('change', e=>{
+      prefs.status = e.target.value;
+      applyPrefs();
+      toast('Статус изменён: ' + (STATUS_LABELS[prefs.status] || 'в сети') + '.');
+    });
+    $('#setAvatar').addEventListener('click', ()=>{
+      const i = AVATAR_EMOJIS.indexOf(USERS.me.emoji);
+      USERS.me.emoji = AVATAR_EMOJIS[(i + 1) % AVATAR_EMOJIS.length];
+      const av = $('#accAvatar'); if (av) av.textContent = USERS.me.emoji;
+      refreshMe(); renderChat();
+      toast('Аватар изменён. Nitro не нужен.');
+    });
+    $('#setDelete').addEventListener('click', ()=>toast('Аккаунт не удалён. Он слишком привык к тебе.'));
+  }
+
+  if (settingsTab === 'appearance'){
+    settingsBody.querySelectorAll('[data-theme]').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        prefs.theme = card.dataset.theme;
+        applyPrefs();
+        renderSettings('appearance');
+        toast('Тема: ' + card.querySelector('.tname').textContent + '.');
+      });
+    });
+    const font = $('#setFont');
+    font.addEventListener('input', ()=>{
+      prefs.fontSize = +font.value;
+      $('#setFontVal').textContent = prefs.fontSize + 'px';
+      applyPrefs();
+    });
+  }
+
+  if (settingsTab === 'notifications'){
+    $('#testNotif').addEventListener('click', ()=>{
+      toast('🔔 Тестовое уведомление: его нет. Как и настоящих уведомлений.');
+    });
+  }
+
+  if (settingsTab === 'voice'){
+    [['setInVol','inVol'],['setOutVol','outVol']].forEach(([id,key])=>{
+      const r = $('#'+id);
+      r.addEventListener('input', ()=>{
+        prefs[key] = +r.value;
+        $('#'+id+'Val').textContent = prefs[key] + '%';
+      });
+    });
+    $('#testMic').addEventListener('click', ()=>toast('Проверка микрофона: тишина. Всё работает как обычно.'));
+  }
+
+  if (settingsTab === 'language'){
+    $('#setLang').addEventListener('change', e=>{
+      prefs.language = e.target.value;
+      const msg = {
+        ru:'Русский — единственный, который работает.',
+        en:'English is not supported. Сюрприз.',
+        dota:'Дота-язык активирован. Мид виноват.',
+        cat:'Мяу.'
+      }[prefs.language];
+      toast(msg || 'Язык изменён.');
+    });
+  }
+
+  if (settingsTab === 'advanced'){
+    $('#resetChats').addEventListener('click', ()=>{
+      state.messages = JSON.parse(JSON.stringify(MESSAGES));
+      state.read.clear();
+      state.read.add(state.channel);
+      renderChat();
+      toast('Переписки сброшены. Сообщения вернулись. Как и дедлайн.');
+    });
+    $('#clearCache').addEventListener('click', ()=>toast('Кэш очищен. Чего не было — того не стало.'));
+    $('#exportData').addEventListener('click', ()=>toast('Данные экспортированы в никуда.'));
+    $('#resetSettings').addEventListener('click', ()=>{
+      Object.assign(prefs, DEFAULT_PREFS);
+      applyPrefs();
+      renderSettings('advanced');
+      toast('Настройки сброшены. Снова тьма.');
+    });
+  }
+}
+
+function openSettings(tab){
+  renderSettings(tab || 'account');
+  $('#settingsOverlay').classList.add('show');
+}
+function closeSettings(){
+  $('#settingsOverlay').classList.remove('show');
+}
+
+// навигация и закрытие
+document.querySelectorAll('.snav').forEach(b=>{
+  b.addEventListener('click', ()=>renderSettings(b.dataset.tab));
+});
+$('#settingsClose').addEventListener('click', closeSettings);
+$('#settingsOverlay').addEventListener('click', e=>{
+  if (e.target.id === 'settingsOverlay') closeSettings();
+});
+document.addEventListener('keydown', e=>{
+  if (e.key === 'Escape' && $('#settingsOverlay').classList.contains('show')) closeSettings();
+});
+
+// Easter egg: двойной клик по пустому месту в чате
+$('#messages').addEventListener('dblclick', e=>{
+  if (e.target.id === 'messages'){
+    toast('Пустота. Как в голосовом канале.');
+  }
+});
+
+/* =========================================================
+   ГОЛОСОВОЙ ЧАТ (WebRTC + MQTT-сигнализация)
+   ========================================================= */
+const VOICE_TOPIC_PREFIX = 'discordparody/voice/v1';
+const VOICE_BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt',
+];
+const VOICE_ICE = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+];
+
+const escapeHtml = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+const voice = {
+  open: false,
+  channel: null,        // id голосового канала
+  guild: null,
+  joined: false,
+  connecting: false,
+  network: true,
+  myId: null,
+  topic: null,
+  client: null,
+  brokerIndex: 0,
+  members: {},          // peerId -> участник
+  pcs: new Map(),       // peerId -> { pc, pending, retries }
+  audios: new Map(),    // peerId -> <audio>
+  chat: [],
+  seenChat: new Set(),
+  stream: null,
+  silentCtx: null,
+  silent: false,
+  muted: false,
+  deafened: false,
+  token: 0,
+  leaving: false,
+  pingTimer: null,
+};
+
+const voiceChannel = () => CHANNELS.find(c => c.id === voice.channel && c.guild === voice.guild) || null;
+const vUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const vColor = c => /^#[0-9a-f]{6}$/i.test(String(c || '')) ? c : '#5865f2';
+
+/* ---------- поток с микрофона / тишина ---------- */
+function makeSilentStream(){
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const dest = ctx.createMediaStreamDestination();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(dest);
+    osc.start();
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+    voice.silentCtx = ctx;
+    return dest.stream;
+  } catch (e) {
+    try {
+      const c = document.createElement('canvas');
+      if (c.captureStream) return c.captureStream(1);
+    } catch (_) {}
+    return new MediaStream();
+  }
+}
+
+async function acquireMic(token){
+  const fallback = () => ({ stream: makeSilentStream(), silent: true });
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return fallback();
+  try {
+    const p = navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: !!prefs.echo,
+        noiseSuppression: !!prefs.noise,
+        autoGainControl: true,
+      },
+      video: false,
+    });
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('mic-timeout')), 10000));
+    const stream = await Promise.race([p, timeout]);
+    p.then(late => { if (late !== stream) late.getTracks().forEach(t => t.stop()); }).catch(()=>{});
+    if (token !== voice.token) { stream.getTracks().forEach(t => t.stop()); return null; }
+    return { stream, silent: false };
+  } catch (e) {
+    return fallback();
+  }
+}
+
+/* ---------- панель ---------- */
+function openVoicePanel(c){
+  if ((voice.joined || voice.connecting) && (voice.channel !== c.id || voice.guild !== c.guild)){
+    leaveVoice({ silent: true });
+  }
+  voice.channel = c.id;
+  voice.guild = c.guild;
+  voice.open = true;
+  $('#vTitle').textContent = c.name;
+  $('#voiceOverlay').classList.add('show');
+  renderVoice();
+}
+
+function closeVoicePanel(){
+  voice.open = false;
+  $('#voiceOverlay').classList.remove('show');
+}
+
+function renderVoice(){
+  const ch = voiceChannel();
+  const joined = voice.joined;
+  const connecting = voice.connecting;
+  const count = Object.keys(voice.members).length;
+
+  // полоска над панелью пользователя
+  const bar = $('#voiceBar');
+  bar.classList.toggle('show', joined || connecting);
+  if (ch){
+    $('#vbTitle').textContent = ch.name;
+    $('#vbSub').textContent = connecting
+      ? 'Подключаемся…'
+      : (joined ? (voice.silent ? 'Только слушаю' : 'В канале') + ' · ' + count + ' уч.' : '');
+    $('#vTitle').textContent = ch.name;
+  }
+
+  let status;
+  if (connecting) status = 'Подключаемся к комнате…';
+  else if (joined) status = 'В канале · ' + count + ' уч.' +
+    (voice.silent ? ' · только слушаю' : '') + (voice.network ? '' : ' · переподключение…');
+  else status = 'Не подключено';
+  $('#vStatus').textContent = status;
+
+  $('#vJoinWrap').style.display = (!joined && !connecting) ? '' : 'none';
+  $('#vRoom').style.display = (joined || connecting) ? '' : 'none';
+  $('#vJoin').disabled = connecting;
+  $('#vJoinListen').disabled = connecting;
+
+  renderVoiceStage();
+  renderVoiceChat();
+
+  $('#vMic').classList.toggle('off', joined && voice.muted);
+  $('#vDeaf').classList.toggle('off', joined && voice.deafened);
+  $('#vMic').disabled = !joined;
+  $('#vDeaf').disabled = !joined;
+  $('#vLeave').disabled = !joined && !connecting;
+  $('#vMic span').textContent = voice.muted ? 'Включить микрофон' : 'Микрофон';
+  $('#vDeaf span').textContent = voice.deafened ? 'Включить звук' : 'Звук';
+}
+
+function renderVoiceStage(){
+  const stage = $('#vStage');
+  if (!voice.joined){
+    stage.innerHTML = '<div class="v-empty">Подключаемся к комнате…<br>Ещё чуть-чуть.</div>';
+    return;
+  }
+  const list = Object.values(voice.members).sort((a,b) => {
+    if (a.id === voice.myId) return -1;
+    if (b.id === voice.myId) return 1;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+  });
+  if (!list.length){
+    stage.innerHTML = '<div class="v-empty">Тут пока никого.</div>';
+    return;
+  }
+  stage.innerHTML = list.map(m => {
+    const rec = voice.pcs.get(m.id);
+    const st = rec && rec.pc.connectionState;
+    const tag = m.id === voice.myId ? 'это ты'
+      : (st === 'connected' ? 'на связи' : (st === 'failed' ? 'нет связи' : 'подключается…'));
+    return `
+      <div class="v-member ${m.id === voice.myId ? 'me' : ''} ${m.muted ? 'muted' : ''}">
+        <div class="v-ava" style="background:${vColor(m.color)}">
+          ${escapeHtml(m.emoji || '🙂')}
+          ${m.muted ? '<span class="v-mute">🔇</span>' : ''}
+        </div>
+        <div class="v-mname">${escapeHtml(m.name || 'Гость')}</div>
+        <div class="v-mtag">${tag}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderVoiceChat(){
+  const box = $('#vMessages');
+  if (!box) return;
+  if (!voice.chat.length){
+    box.innerHTML = '<div class="v-empty">Сообщений пока нет.<br>Напиши первым — тут это безопасно.</div>';
+  } else {
+    box.innerHTML = voice.chat.map(m => `
+      <div class="v-msg">
+        <div class="v-msg-ava" style="background:${vColor(m.color)}">${escapeHtml(m.emoji || '🙂')}</div>
+        <div class="v-msg-body">
+          <div class="v-msg-head"><b style="color:${vColor(m.color)}">${escapeHtml(m.name || 'Гость')}</b><span class="v-time">${escapeHtml(m.time || '')}</span></div>
+          <div class="v-msg-text">${escapeHtml(m.text || '')}</div>
+        </div>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+  $('#vChatCount').textContent = voice.chat.length ? '(' + voice.chat.length + ')' : '';
+}
+
+function addVoiceChat(msg){
+  if (!msg || !msg.text) return;
+  if (msg.id){
+    if (voice.seenChat.has(msg.id)) return;
+    voice.seenChat.add(msg.id);
+    if (voice.seenChat.size > 500) voice.seenChat.clear();
+  }
+  voice.chat.push(msg);
+  if (voice.chat.length > 200) voice.chat.splice(0, voice.chat.length - 200);
+  renderVoiceChat();
+}
+
+/* ---------- вход в комнату ---------- */
+async function joinVoice(mode){
+  if (voice.joined || voice.connecting) return;
+  if (typeof mqtt === 'undefined'){
+    toast('Голосовая библиотека не загрузилась. Проверь интернет и обнови страницу.');
+    return;
+  }
+  const ch = voiceChannel();
+  if (!ch){ toast('Канал не найден. Он был, но ушёл.'); return; }
+
+  voice.connecting = true;
+  voice.joined = false;
+  voice.network = true;
+  voice.leaving = false;
+  voice.token++;
+  const token = voice.token;
+  voice.myId = 'p' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+  voice.topic = VOICE_TOPIC_PREFIX + '/' + voice.guild + '/' + voice.channel;
+  voice.brokerIndex = 0;
+  voice.members = {};
+  voice.chat = [];
+  voice.seenChat.clear();
+  voice.pcs.forEach(rec => { try { rec.pc.close(); } catch(_){} });
+  voice.pcs.clear();
+  voice.audios.forEach(a => { try { a.srcObject = null; a.remove(); } catch(_){} });
+  voice.audios.clear();
+  if (voice.pingTimer){ clearInterval(voice.pingTimer); voice.pingTimer = null; }
+  if (voice.client){ try { voice.client.end(true); } catch(_){} voice.client = null; }
+  if (voice.stream){ try { voice.stream.getTracks().forEach(t => t.stop()); } catch(_){} voice.stream = null; }
+  if (voice.silentCtx){ try { voice.silentCtx.close(); } catch(_){} voice.silentCtx = null; }
+  voice.silent = false;
+  voice.muted = false;
+  voice.deafened = false;
+  voice.members[voice.myId] = selfMember();
+  $('#btnMic').classList.remove('off');
+  $('#btnDeaf').classList.remove('off');
+  renderVoice();
+  renderChannels();
+
+  let res;
+  if (mode === 'listen'){
+    res = { stream: makeSilentStream(), silent: true };
+  } else {
+    res = await acquireMic(token);
+  }
+  if (!res) return;
+  if (token !== voice.token){
+    try { res.stream.getTracks().forEach(t => t.stop()); } catch(_){}
+    return;
+  }
+  voice.stream = res.stream;
+  voice.silent = res.silent;
+  voice.muted = res.silent;
+  voice.members[voice.myId] = selfMember();
+  if (res.silent && mode !== 'listen') toast('Микрофон недоступен — заходим слушателем. Писать всё равно можно.');
+
+  connectMqtt(token);
+}
+
+/* ---------- MQTT-сигнализация ---------- */
+function connectMqtt(token){
+  if (token !== voice.token) return;
+  if (voice.brokerIndex >= VOICE_BROKERS.length){
+    failVoice('Не удалось подключиться к голосовой сети. Проверь интернет.');
+    return;
+  }
+  const url = VOICE_BROKERS[voice.brokerIndex];
+  let client;
+  try {
+    client = mqtt.connect(url, {
+      clientId: 'dpc_' + voice.myId,
+      clean: true,
+      connectTimeout: 10000,
+      reconnectPeriod: 3000,
+      keepalive: 30,
+    });
+  } catch (e){
+    voice.brokerIndex++;
+    connectMqtt(token);
+    return;
+  }
+  voice.client = client;
+  let everConnected = false;
+  const timeout = setTimeout(() => {
+    if (!everConnected && token === voice.token && voice.connecting){
+      try { client.end(true); } catch(_){}
+      if (voice.client === client) voice.client = null;
+      voice.brokerIndex++;
+      connectMqtt(token);
+    }
+  }, 12000);
+
+  client.on('connect', () => {
+    if (token !== voice.token){ try { client.end(true); } catch(_){} return; }
+    everConnected = true;
+    clearTimeout(timeout);
+    client.subscribe(voice.topic, { qos: 1 }, err => {
+      if (token !== voice.token) return;
+      if (err){ failVoice('Не удалось подписаться на голосовую комнату.'); return; }
+      const first = !voice.joined;
+      voice.connecting = false;
+      voice.joined = true;
+      voice.network = true;
+      publishHello();
+      startPing();
+      renderVoice();
+      renderChannels();
+      if (first) toast('Ты в голосовом канале. Друзья заходят в этот же канал — и вы слышите друг друга.');
+      else toast('Связь с голосовой комнатой восстановлена.');
+    });
+  });
+
+  client.on('message', (topic, payload) => {
+    if (token !== voice.token) return;
+    let d;
+    try { d = JSON.parse(payload.toString()); } catch(_){ return; }
+    handleSignal(d);
+  });
+
+  client.on('error', () => {
+    if (!everConnected && token === voice.token && voice.connecting){
+      clearTimeout(timeout);
+      try { client.end(true); } catch(_){}
+      if (voice.client === client) voice.client = null;
+      voice.brokerIndex++;
+      connectMqtt(token);
+    }
+  });
+
+  client.on('offline', () => {
+    if (token === voice.token && voice.joined){
+      voice.network = false;
+      renderVoice();
+    }
+  });
+  client.on('close', () => {
+    if (token === voice.token && voice.joined && !voice.leaving){
+      voice.network = false;
+      renderVoice();
+    }
+  });
+  client.on('reconnect', () => {
+    if (token === voice.token && voice.joined){
+      voice.network = false;
+      renderVoice();
+    }
+  });
+}
+
+function selfInfo(){
+  return { id: voice.myId, name: USERS.me.name, emoji: USERS.me.emoji, color: USERS.me.color, muted: voice.muted };
+}
+
+function selfMember(){
+  return {
+    id: voice.myId,
+    name: USERS.me.name,
+    emoji: USERS.me.emoji,
+    color: USERS.me.color,
+    muted: voice.muted,
+    lastSeen: Date.now(),
+  };
+}
+
+function publishSignal(obj){
+  if (!voice.client || !voice.client.connected || !voice.topic) return;
+  try { voice.client.publish(voice.topic, JSON.stringify(obj), { qos: 1 }); } catch(_){}
+}
+
+function publishHello(){
+  publishSignal(Object.assign({ t: 'hello', ts: Date.now() }, selfInfo()));
+}
+
+function startPing(){
+  if (voice.pingTimer) clearInterval(voice.pingTimer);
+  voice.pingTimer = setInterval(() => {
+    if (!voice.joined || voice.leaving) return;
+    publishSignal(Object.assign({ t: 'ping', ts: Date.now() }, selfInfo()));
+    prunePeers();
+  }, 15000);
+}
+
+function prunePeers(){
+  if (!voice.network) return;
+  const now = Date.now();
+  Object.keys(voice.members).forEach(id => {
+    if (id === voice.myId) return;
+    const m = voice.members[id];
+    if (!m.lastSeen || now - m.lastSeen > 60000) removePeer(id);
+  });
+}
+
+function upsertPeer(d){
+  const id = d && (d.id || d.from);
+  if (!id || id === voice.myId) return null;
+  const prev = voice.members[id] || {};
+  const m = {
+    id,
+    name: String(d.name || prev.name || 'Гость').slice(0, 24),
+    emoji: String(d.emoji || prev.emoji || '🙂').slice(0, 8),
+    color: vColor(d.color || prev.color),
+    muted: d.muted == null ? !!prev.muted : !!d.muted,
+    lastSeen: Date.now(),
+  };
+  voice.members[id] = m;
+  return m;
+}
+
+function handleSignal(d){
+  if (!d || typeof d !== 'object' || !d.t) return;
+  if (!d.from || d.from === voice.myId) return;
+  if (d.to && d.to !== voice.myId) return;
+
+  switch (d.t){
+    case 'hello':
+    case 'ping':
+    case 'hello-ack': {
+      const isNew = !voice.members[d.from];
+      upsertPeer(d);
+      if (isNew){
+        publishSignal(Object.assign({ t: 'hello-ack', to: d.from, ts: Date.now() }, selfInfo()));
+      }
+      maybeInitiate(d.from);
+      renderVoice();
+      renderChannels();
+      break;
+    }
+    case 'offer':
+      handleOffer(d);
+      break;
+    case 'answer':
+      handleAnswer(d);
+      break;
+    case 'ice':
+      handleIce(d);
+      break;
+    case 'mute': {
+      const m = voice.members[d.from];
+      if (m){
+        m.muted = !!d.muted;
+        m.lastSeen = Date.now();
+        renderVoice();
+      }
+      break;
+    }
+    case 'chat': {
+      const msg = d.msg;
+      if (msg && msg.text){
+        addVoiceChat({
+          id: String(msg.id || vUid()),
+          from: d.from,
+          name: String(msg.name || 'Гость').slice(0, 24),
+          emoji: String(msg.emoji || '🙂').slice(0, 8),
+          color: vColor(msg.color),
+          text: String(msg.text).slice(0, 300),
+          time: String(msg.time || nowTime()).slice(0, 8),
+        });
+      }
+      break;
+    }
+    case 'bye':
+      removePeer(d.from);
+      break;
+  }
+}
+
+/* ---------- WebRTC mesh ---------- */
+function maybeInitiate(peerId){
+  if (!voice.joined || !peerId || peerId === voice.myId) return;
+  if (voice.myId >= peerId) return;
+  if (voice.pcs.has(peerId)) return;
+  createOffer(peerId);
+}
+
+async function createOffer(peerId){
+  if (!voice.joined || !peerId || voice.pcs.has(peerId)) return;
+  const pc = newPC(peerId);
+  try {
+    const offer = await pc.createOffer({ offerToReceiveAudio: true });
+    await pc.setLocalDescription(offer);
+    publishSignal({
+      t: 'offer', from: voice.myId, to: peerId,
+      sdp: { type: pc.localDescription.type, sdp: pc.localDescription.sdp },
+      info: selfInfo(),
+    });
+  } catch (e){
+    removePC(peerId);
+  }
+}
+
+async function handleOffer(d){
+  if (!d.sdp || !d.from) return;
+  if (voice.myId < d.from && voice.pcs.has(d.from)) return;
+  upsertPeer(Object.assign({ id: d.from }, d.info || {}));
+  let rec = voice.pcs.get(d.from);
+  if (rec && rec.pc.signalingState === 'have-local-offer'){
+    if (voice.myId > d.from){
+      try { await rec.pc.setLocalDescription({ type: 'rollback' }); } catch(_){}
+    } else {
+      return;
+    }
+  }
+  if (rec && rec.pc.signalingState !== 'stable') return;
+  if (!rec){
+    newPC(d.from);
+    rec = voice.pcs.get(d.from);
+  }
+  try {
+    await rec.pc.setRemoteDescription(d.sdp);
+    await flushIce(rec);
+    const answer = await rec.pc.createAnswer();
+    await rec.pc.setLocalDescription(answer);
+    publishSignal({
+      t: 'answer', from: voice.myId, to: d.from,
+      sdp: { type: rec.pc.localDescription.type, sdp: rec.pc.localDescription.sdp },
+    });
+    renderVoice();
+  } catch (e){
+    removePC(d.from);
+  }
+}
+
+async function handleAnswer(d){
+  const rec = voice.pcs.get(d.from);
+  if (!rec || !d.sdp) return;
+  try {
+    await rec.pc.setRemoteDescription(d.sdp);
+    await flushIce(rec);
+    renderVoice();
+  } catch (e){
+    removePC(d.from);
+  }
+}
+
+function handleIce(d){
+  const rec = voice.pcs.get(d.from);
+  if (!rec || !d.candidate) return;
+  if (rec.pc.remoteDescription && rec.pc.remoteDescription.type){
+    rec.pc.addIceCandidate(d.candidate).catch(()=>{});
+  } else {
+    rec.pending.push(d.candidate);
+  }
+}
+
+async function flushIce(rec){
+  if (!rec || !rec.pc.remoteDescription) return;
+  const list = rec.pending.splice(0);
+  for (const c of list){
+    try { await rec.pc.addIceCandidate(c); } catch(_){}
+  }
+}
+
+function newPC(peerId){
+  const existing = voice.pcs.get(peerId);
+  if (existing) return existing.pc;
+  const pc = new RTCPeerConnection({ iceServers: VOICE_ICE, iceCandidatePoolSize: 4 });
+  const rec = { pc, pending: [], retries: 0 };
+  voice.pcs.set(peerId, rec);
+  if (voice.stream){
+    voice.stream.getTracks().forEach(t => { try { pc.addTrack(t, voice.stream); } catch(_){} });
+  }
+  pc.onicecandidate = e => {
+    if (e.candidate) publishSignal({ t: 'ice', from: voice.myId, to: peerId, candidate: e.candidate });
+  };
+  pc.ontrack = e => {
+    const stream = (e.streams && e.streams[0]) || new MediaStream([e.track]);
+    attachRemote(peerId, stream);
+    renderVoice();
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected'){
+      rec.retries = 0;
+      renderVoice();
+    } else if (pc.connectionState === 'failed'){
+      if (voice.myId < peerId && rec.retries < 2){
+        rec.retries++;
+        removePC(peerId);
+        setTimeout(() => { if (voice.joined) createOffer(peerId); }, 1500);
+      } else {
+        renderVoice();
+      }
+    }
+  };
+  return pc;
+}
+
+function removePC(peerId){
+  const rec = voice.pcs.get(peerId);
+  if (rec){
+    try { rec.pc.close(); } catch(_){}
+    voice.pcs.delete(peerId);
+  }
+  detachRemote(peerId);
+}
+
+function removePeer(id){
+  removePC(id);
+  delete voice.members[id];
+  renderVoice();
+  renderChannels();
+}
+
+/* ---------- удалённый звук ---------- */
+function attachRemote(pid, stream){
+  detachRemote(pid);
+  const a = document.createElement('audio');
+  a.className = 'voice-audio';
+  a.autoplay = true;
+  a.setAttribute('playsinline', '');
+  a.srcObject = stream;
+  a.muted = voice.deafened;
+  a.volume = Math.max(0, Math.min(1, (prefs.outVol == null ? 100 : prefs.outVol) / 100));
+  document.body.appendChild(a);
+  a.play().catch(()=>{});
+  voice.audios.set(pid, a);
+  renderVoice();
+}
+
+function detachRemote(pid){
+  const a = voice.audios.get(pid);
+  if (a){
+    try { a.srcObject = null; a.remove(); } catch(_){}
+    voice.audios.delete(pid);
+  }
+}
+
+/* ---------- управление ---------- */
+function toggleVoiceMute(){
+  if (!voice.joined && !voice.connecting){ toast('Сначала зайди в голосовой канал.'); return; }
+  if (voice.silent){
+    toast('Ты в режиме слушателя. Микрофона нет — но мысленно ты очень громкий.');
+    return;
+  }
+  voice.muted = !voice.muted;
+  if (voice.stream){
+    try { voice.stream.getAudioTracks().forEach(t => { t.enabled = !voice.muted; }); } catch(_){}
+  }
+  if (voice.members[voice.myId]) voice.members[voice.myId].muted = voice.muted;
+  publishSignal({ t: 'mute', from: voice.myId, muted: voice.muted });
+  $('#btnMic').classList.toggle('off', voice.muted);
+  renderVoice();
+  toast(voice.muted ? 'Микрофон выключен. Соседи выдохнули.' : 'Микрофон включён. Соседи напряглись.');
+}
+
+function toggleVoiceDeafen(){
+  if (!voice.joined && !voice.connecting){ toast('Сначала зайди в голосовой канал.'); return; }
+  voice.deafened = !voice.deafened;
+  voice.audios.forEach(a => { try { a.muted = voice.deafened; } catch(_){} });
+  $('#btnDeaf').classList.toggle('off', voice.deafened);
+  renderVoice();
+  toast(voice.deafened ? 'Звук канала выключен. Теперь слышно только свои мысли.' : 'Звук канала включён.');
+}
+
+function sendVoiceChat(){
+  const inp = $('#vInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  if (!voice.joined){ toast('Сначала подключись к голосовому каналу.'); return; }
+  const msg = {
+    id: vUid(),
+    from: voice.myId,
+    name: USERS.me.name,
+    emoji: USERS.me.emoji,
+    color: USERS.me.color,
+    text: text.slice(0, 300),
+    time: nowTime(),
+  };
+  addVoiceChat(msg);
+  publishSignal({ t: 'chat', from: voice.myId, msg });
+  inp.value = '';
+}
+
+function leaveVoice(opts){
+  opts = opts || {};
+  const wasIn = voice.joined || voice.connecting;
+  voice.leaving = true;
+  voice.token++;
+
+  if (voice.client && voice.client.connected){
+    try {
+      voice.client.publish(voice.topic, JSON.stringify({ t: 'bye', from: voice.myId }), { qos: 1 });
+    } catch(_){}
+  }
+  if (voice.pingTimer){ clearInterval(voice.pingTimer); voice.pingTimer = null; }
+  if (voice.client){ try { voice.client.end(true); } catch(_){} voice.client = null; }
+  voice.pcs.forEach(rec => { try { rec.pc.close(); } catch(_){} });
+  voice.pcs.clear();
+  voice.audios.forEach(a => { try { a.srcObject = null; a.remove(); } catch(_){} });
+  voice.audios.clear();
+  if (voice.stream){ try { voice.stream.getTracks().forEach(t => t.stop()); } catch(_){} voice.stream = null; }
+  if (voice.silentCtx){ try { voice.silentCtx.close(); } catch(_){} voice.silentCtx = null; }
+
+  voice.joined = false;
+  voice.connecting = false;
+  voice.network = true;
+  voice.myId = null;
+  voice.topic = null;
+  voice.members = {};
+  voice.chat = [];
+  voice.seenChat.clear();
+  voice.silent = false;
+  voice.muted = false;
+  voice.deafened = false;
+  $('#btnMic').classList.remove('off');
+  $('#btnDeaf').classList.remove('off');
+  voice.leaving = false;
+
+  renderVoice();
+  renderChannels();
+  if (wasIn && !opts.silent) toast('Ты вышел из голосового канала. Тишина вернулась.');
+}
+
+function failVoice(msg){
+  toast(msg);
+  leaveVoice({ silent: true });
+}
+
+/* ---------- кнопки панели ---------- */
+$('#vJoin').addEventListener('click', () => joinVoice('mic'));
+$('#vJoinListen').addEventListener('click', () => joinVoice('listen'));
+$('#vLeave').addEventListener('click', () => leaveVoice({}));
+$('#vbLeave').addEventListener('click', () => leaveVoice({}));
+$('#vbOpen').addEventListener('click', () => {
+  if (!voice.channel) return;
+  voice.open = true;
+  $('#voiceOverlay').classList.add('show');
+  renderVoice();
+});
+$('#vMic').addEventListener('click', toggleVoiceMute);
+$('#vDeaf').addEventListener('click', toggleVoiceDeafen);
+$('#vSend').addEventListener('click', sendVoiceChat);
+$('#vInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendVoiceChat(); }
+});
+$('#vClose').addEventListener('click', closeVoicePanel);
+$('#voiceOverlay').addEventListener('click', e => {
+  if (e.target.id === 'voiceOverlay') closeVoicePanel();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#voiceOverlay').classList.contains('show')) closeVoicePanel();
+});
+
+// при закрытии вкладки вежливо сообщаем комнате, что мы ушли
+window.addEventListener('beforeunload', () => {
+  if (voice.client && voice.client.connected && voice.topic && voice.myId){
+    try {
+      voice.client.publish(voice.topic, JSON.stringify({ t: 'bye', from: voice.myId }), { qos: 0 });
+    } catch(_){}
+  }
+});
+
+/* =========================================================
+   СТАРТ
+   ========================================================= */
+renderRail();
+renderChannels();
+renderChat();
+renderMembers();
+applyPrefs();
+renderVoice();
+autoGrow();
+
+// приветственный тост
+setTimeout(()=>toast('Добро пожаловать на сервер. Здесь тихо. Навсегда.'), 700);
+setTimeout(()=>toast('КурьерБот: у вас 1 новое сообщение. Оно пустое.'), 2600);
+setTimeout(()=>toast('Совет: Ctrl+K — быстрый переход по каналам, Alt+↑/↓ — листать каналы.'), 4600);
+</script>
+</body>
+</html>
